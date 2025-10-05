@@ -6,6 +6,13 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 from starlette.middleware.base import BaseHTTPMiddleware
+import os
+from pathlib import Path
+
+UPLOADS_DIR = Path(os.getenv("UPLOADS_DIR", "/data/uploads"))
+MODELS_DIR  = Path(os.getenv("MODELS_DIR",  "/data/models"))
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)  # Set to DEBUG for more verbosity
@@ -40,7 +47,7 @@ def predict_image(model, _image, size):
     classes = {labels[i]: float(round(j * 100, 2)) for i, j in enumerate(prediction[0])}
 
     # Load and use the stages model if necessary
-    stages_model = load_model('./models/stages.keras')
+    stages_model = load_model(MODELS_DIR / 'stages.keras')
     logger.debug(f"Stages model input shape: {stages_model.input_shape}")
     labels_stages = {0: 'stage_1', 1: 'stage_2', 2: 'stage_3', 3: 'stage_4'}
     predicted_stage = "stage_0"
@@ -87,9 +94,9 @@ async def get_results(
     modelFilename: str,
 ):
     try:
-        url = f"./uploads/{imageName}" # Might be a problem
-        img = Image.open(url)
-        model_name = "./models/" + modelFilename
+        image_path = UPLOADS_DIR / imageName
+        img = Image.open(image_path)
+        model_name = str(MODELS_DIR / modelFilename)
         result = predictWithImage(img, model_name, modelInputFeatureSize)
 
         return {"classification": result}
