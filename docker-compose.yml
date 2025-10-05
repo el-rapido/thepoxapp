@@ -19,20 +19,18 @@ services:
         build:
             context: ./poxapp
             dockerfile: Dockerfile
-        environment:
-            - DATABASE_URL=mysql://root:fadifadi2025@mysql:3306/skinconditions
-            - PORT=7134
-            - HOST=0.0.0.0
         depends_on:
             - mysql
+        environment:
+            - DATABASE_URL=mysql://root:fadifadi2025@mysql:3306/skinconditions
         volumes:
             - ./poxapp:/app
-            # prevent host bind mount from hiding container deps:
+            # keep node_modules from being hidden by the bind mount (optional but helpful)
             - /app/node_modules
         ports:
             - "7134:7134"
         working_dir: /app
-        command: ["sh","-lc","npx next dev -p $PORT -H $HOST"]
+        command: ["sh","-lc","npm ci && npx next dev --port 7134 --hostname 0.0.0.0"]
         networks:
             - app-network
 
