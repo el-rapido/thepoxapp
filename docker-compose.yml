@@ -39,7 +39,7 @@ services:
         volumes:
             - ./poxapp:/app # app code (bind mount)
             - /app/node_modules # prevent deps from being hidden by bind mount
-            - ./data/uploads:/uploads # shared files (images)
+            - ./data/uploads:/app/uploads # shared files (images)
         working_dir: /app
         # Dev server, reachable from outside container
         command:
