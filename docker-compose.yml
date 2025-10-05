@@ -17,8 +17,8 @@ services:
             - MODELS_DIR=/data/models
         volumes:
             # 👇 host ↔ container mounts (mirror with ./data on host)
-            - ./data/uploads:/data/uploads
-            - ./data/models:/data/models
+            - ./data/uploads:/app/data/uploads
+            - ./data/models:/app/data/models
         ports:
             - "7135:7135"
         networks:
