@@ -1,0 +1,28 @@
+# Stage 1: Build stage
+FROM node:18-slim AS build
+
+# Set working directory
+WORKDIR /app
+
+# Copy package.json and package-lock.json first to leverage caching
+COPY package.json package-lock.json ./
+
+# Install dependencies, including devDependencies needed for building the app
+RUN npm install 
+
+# Copy the rest of the app source code
+COPY . .
+
+# Build the Next.js app (you can change this depending on your build command)
+RUN npm run build
+
+RUN apt-get update && apt-get install -y \
+    openssl \
+    libssl3 \
+    && rm -rf /var/lib/apt/lists/*
+    
+# Expose port 7134
+EXPOSE 7134
+
+# Run Next.js in production mode
+CMD ["npm", "run", "start"]

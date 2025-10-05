@@ -1,0 +1,8 @@
+uploads/*.jpg
+uploads/*.png
+uploads/*.jpeg
+uploads/*.webp
+
+uploads/*/
+
+*.keras
