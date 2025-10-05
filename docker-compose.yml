@@ -21,15 +21,18 @@ services:
             dockerfile: Dockerfile
         environment:
             - DATABASE_URL=mysql://root:fadifadi2025@mysql:3306/skinconditions
+            - PORT=7134
+            - HOST=0.0.0.0
         depends_on:
             - mysql
         volumes:
-            - ./poxapp:/app # Mount frontend directory
-            - ./uploads:/app/uploads # Mount uploads to access images (if necessary)
+            - ./poxapp:/app
+            # prevent host bind mount from hiding container deps:
+            - /app/node_modules
         ports:
-            - "7134:7134" # Expose Next.js frontend on port 3000
+            - "7134:7134"
         working_dir: /app
-        command: ["npm", "run", "dev"]
+        command: ["sh","-lc","npx next dev -p $PORT -H $HOST"]
         networks:
             - app-network
 
