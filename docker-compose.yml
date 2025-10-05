@@ -13,8 +13,8 @@ services:
         environment:
             - PYTHONUNBUFFERED=1
             # 👇 absolute, shared paths INSIDE the container
-            - UPLOADS_DIR=/data/uploads
-            - MODELS_DIR=/data/models
+            - UPLOADS_DIR=/app/data/uploads
+            - MODELS_DIR=/app/data/models
         volumes:
             # 👇 host ↔ container mounts (mirror with ./data on host)
             - ./data/uploads:/app/data/uploads
