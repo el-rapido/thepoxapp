@@ -11,10 +11,10 @@ export default function Home() {
     const router = useRouter();
 
     function login() {
-        if (username == "profdux" && password == "dux123") {
-            router.push("/dashboard");
-        }
+    if ((username == "profdux" && password == "dux123") || (username == "mugedeniz90@gmail.com" && password == "mugedeniz")) {
+        router.push("/dashboard");
     }
+}
 
     return (
         <>

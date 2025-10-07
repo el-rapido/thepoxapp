@@ -1,79 +1,67 @@
 version: "3.9"
 
 services:
-    # FastAPI backend service
-    backend:
-        build:
-            context: ./api
-            dockerfile: Dockerfile
-        working_dir: /app
-        # Run Uvicorn explicitly (same as your Dockerfile CMD, but visible here)
-        command:
-            ["sh", "-lc", "uvicorn fast:application --host 0.0.0.0 --port 7135"]
-        environment:
-            - PYTHONUNBUFFERED=1
-            # 👇 absolute, shared paths INSIDE the container
-            - UPLOADS_DIR=/app/data/uploads
-            - MODELS_DIR=/app/data/models
-        volumes:
-            # 👇 host ↔ container mounts (mirror with ./data on host)
-            - ./data/uploads:/app/data/uploads
-            - ./data/models:/app/data/models
-        ports:
-            - "7135:7135"
-        networks:
-            - app-network
-        restart: unless-stopped
+  # FastAPI backend service
+  backend:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    working_dir: /app
+    command: ["sh", "-lc", "uvicorn fast:application --host 0.0.0.0 --port 7135"]
+    environment:
+      - PYTHONUNBUFFERED=1
+      - UPLOADS_DIR=/app/data/uploads
+      - MODELS_DIR=/app/data/models
+    volumes:
+      - ./data/uploads:/app/data/uploads
+      - ./data/models:/app/data/models
+    ports:
+      - "7135:7135"
+    networks:
+      - proxy-net
+    restart: unless-stopped
 
-    # Next.js frontend service
-    frontend:
-        build:
-            context: ./poxapp
-            dockerfile: Dockerfile
-        depends_on:
-            - mysql
-        environment:
-            - DATABASE_URL=mysql://root:fadifadi2025@mysql:3306/skinconditions
-            # Same shared uploads path so FE and BE see the same files
-            - UPLOADS_DIR=/data/uploads
-        volumes:
-            - ./poxapp:/app # app code (bind mount)
-            - /app/node_modules # prevent deps from being hidden by bind mount
-            - ./data/uploads:/app/uploads # shared files (images)
-        working_dir: /app
-        # Dev server, reachable from outside container
-        command:
-            [
-                "sh",
-                "-lc",
-                "npm ci && npx next dev --port 7134 --hostname 0.0.0.0",
-            ]
-        ports:
-            - "7134:7134"
-        networks:
-            - app-network
-        restart: unless-stopped
+  # Next.js frontend service
+  frontend:
+    build:
+      context: ./poxapp
+      dockerfile: Dockerfile
+    working_dir: /app
+    command: ["sh", "-lc", "npm ci && npx next dev --port 7134 --hostname 0.0.0.0"]
+    depends_on:
+      - mysql
+    environment:
+      - DATABASE_URL=mysql://root:fadifadi2025@mysql:3306/skinconditions
+      - UPLOADS_DIR=/data/uploads
+    volumes:
+      - ./poxapp:/app
+      - /app/node_modules
+      - ./data/uploads:/app/uploads
+    ports:
+      - "7134:7134"
+    networks: 
+      - proxy-net
+    restart: unless-stopped
 
-    # MySQL service
-    mysql:
-        image: mysql:8.0
-        environment:
-            MYSQL_ROOT_PASSWORD: fadifadi2025 # 🔐 consider a stronger secret
-            MYSQL_DATABASE: skinconditions
-            MYSQL_USER: dux
-            MYSQL_PASSWORD: dux123
-        # Safer: bind DB to localhost only (remove entirely if not needed from host)
-        ports:
-            - "127.0.0.1:7136:3306"
-        volumes:
-            - mysql-data:/var/lib/mysql
-        networks:
-            - app-network
-        restart: unless-stopped
+  # MySQL service
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: fadifadi2025
+      MYSQL_DATABASE: skinconditions
+      MYSQL_USER: dux
+      MYSQL_PASSWORD: dux123
+    ports:
+      - "127.0.0.1:7136:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - proxy-net
+    restart: unless-stopped
 
 volumes:
-    mysql-data:
+  mysql-data:
 
 networks:
-    app-network:
-        driver: bridge
+  proxy-net:
+    external: true

@@ -1,4 +1,4 @@
-from tensorflow.keras.models import load_model
+import tensorflow as tf
 from tensorflow.keras.preprocessing import image
 import numpy as np
 from PIL import Image
@@ -27,7 +27,7 @@ def preprocess_image(_image, size):
     return img_array
 
 def predictWithImage(_image, model_name, size):
-    loaded_model = load_model(model_name)
+    loaded_model = tf.keras.models.load_model(model_name)
     return predict_image(loaded_model, _image, size)
 
 def predict_image(model, _image, size):
@@ -47,12 +47,12 @@ def predict_image(model, _image, size):
     classes = {labels[i]: float(round(j * 100, 2)) for i, j in enumerate(prediction[0])}
 
     # Load and use the stages model if necessary
-    stages_model = load_model(MODELS_DIR / 'stages.keras')
-    logger.debug(f"Stages model input shape: {stages_model.input_shape}")
     labels_stages = {0: 'stage_1', 1: 'stage_2', 2: 'stage_3', 3: 'stage_4'}
     predicted_stage = "stage_0"
 
     if predicted_class == 'monkeypox':
+        stages_model = tf.keras.models.load_model(MODELS_DIR / 'stages.keras')
+        logger.debug(f"Stages model input shape: {stages_model.input_shape}")
         logger.debug(f"Shape for stages model prediction: {preprocessed_image.shape}")
         # No need to add np.newaxis; preprocessed_image already has batch dimension
         c = stages_model.predict(preprocessed_image)
