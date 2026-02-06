@@ -113,51 +113,77 @@ export default function Dashboard() {
 
     async function startPrediction() {
         try {
-            if (image) {
-                // upload file, get new filename
-                const result = await uploadFile(image);
-                console.log("upload result: ", result);
-
-                const fileName = result.split("/uploads/")[1];
-
-                setIsPredicting(true);
-
-                const prediction = await fetch("/api/predict", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({ fileName }),
-                });
-
-                setRegularFilename(fileName);
-                setAbsoluteImageURL(`${DOMAIN}/uploads/${fileName}`);
-
-                const predictionResults = JSON.parse(
-                    await prediction.text()
-                ).classification;
-                console.log("predictionResults: ", predictionResults);
-
-                if (predictionResults) {
-                    const accuracy = predictionResults.max_prob;
-                    setPredictedResults({
-                        className:
-                            accuracy < 0.65
-                                ? "not-identified"
-                                : predictionResults.predicted_class,
-                        date: new Date().toDateString(),
-                    });
-                }
-
-                setImage(undefined);
-
-                setPredictionPopup(false);
-                setIsPredicting(false);
-
-                setReviewPopup(true);
+            if (!image) {
+                return;
             }
+
+            const result = await uploadFile(image);
+            console.log("upload result: ", result);
+
+            if (!result) {
+                throw new Error("Image upload failed");
+            }
+
+            const fileName = result.split("/uploads/")[1];
+            if (!fileName) {
+                throw new Error("Could not determine the uploaded filename");
+            }
+
+            setIsPredicting(true);
+
+            const prediction = await fetch("/api/predict", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ fileName }),
+            });
+
+            const predictionText = await prediction.text();
+
+            if (!prediction.ok) {
+                throw new Error(
+                    predictionText ||
+                        `Prediction API failed with status ${prediction.status}`
+                );
+            }
+
+            let predictionData;
+            try {
+                predictionData = JSON.parse(predictionText);
+            } catch (parsingError) {
+                throw new Error(
+                    "Prediction response could not be parsed as JSON"
+                );
+            }
+
+            const predictionResults = predictionData?.classification;
+            if (!predictionResults) {
+                throw new Error("Prediction response is missing classification data");
+            }
+
+            setRegularFilename(fileName);
+            setAbsoluteImageURL(`${DOMAIN}/uploads/${fileName}`);
+
+            console.log("predictionResults: ", predictionResults);
+
+            const accuracy = predictionResults.max_prob;
+            setPredictedResults({
+                className:
+                    accuracy < 0.65
+                        ? "not-identified"
+                        : predictionResults.predicted_class,
+                date: new Date().toDateString(),
+            });
+
+            setImage(undefined);
+
+            setPredictionPopup(false);
+            setReviewPopup(true);
         } catch (error) {
             console.error(error);
+        } finally {
+            setIsPredicting(false);
         }
     }
 

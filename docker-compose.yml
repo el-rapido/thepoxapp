@@ -27,7 +27,7 @@ services:
       context: ./poxapp
       dockerfile: Dockerfile
     working_dir: /app
-    command: ["sh", "-lc", "npm ci && npx next dev --port 7134 --hostname 0.0.0.0"]
+    command: ["sh", "-lc", "npx next dev --port 7134 --hostname 0.0.0.0"]
     depends_on:
       - mysql
     environment:
