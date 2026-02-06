@@ -151,7 +151,8 @@ export default function Dashboard() {
             let predictionData;
             try {
                 predictionData = JSON.parse(predictionText);
-            } catch (parsingError) {
+            } catch (parseError) {
+                console.error("Prediction JSON parse failed:", parseError);
                 throw new Error(
                     "Prediction response could not be parsed as JSON"
                 );
