@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 const BACKENDURL =
     process.env.BACKEND_URL ??
     process.env.NEXT_PUBLIC_BACKEND_URL ??
-    "http://localhost:7135";
+    "http://backend:7135";
 
 export async function POST(request: NextRequest) {
     const body = await request.json();
