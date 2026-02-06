@@ -8,15 +8,18 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 
 # Install dependencies
-RUN npm install
+RUN npm ci
 
 # Copy the rest of the app source code
-COPY . . 
+COPY . .
 
 RUN apt-get update -y && apt-get install -y openssl
+
+# Build for production
+RUN npm run build
 
 # Expose port 7134
 EXPOSE 7134
 
-# Run Next.js in development mode
-CMD ["npm", "run", "dev"]
+# Run Next.js in production mode
+CMD ["npm", "run", "start"]
