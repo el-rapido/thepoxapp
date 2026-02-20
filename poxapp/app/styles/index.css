@@ -129,6 +129,10 @@ button {
     transition: 0.3s;
 }
 
+.bubble-message-container.visible {
+    opacity: 100%;
+}
+
 .login-heading {
     color: white;
 }
