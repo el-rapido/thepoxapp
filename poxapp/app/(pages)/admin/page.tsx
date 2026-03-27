@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import "@/app/styles/admin.css";
 
 type AdminUser = {
@@ -64,6 +64,20 @@ type AdminActivityPayload = {
     loginEvents: LoginEvent[];
     predictions: Prediction[];
     uploads: Upload[];
+    serverPhotos: {
+        folder: string;
+        fileName: string;
+        relativePath: string;
+    }[];
+};
+
+type CreateUserForm = {
+    name: string;
+    username: string;
+    email: string;
+    phone: string;
+    password: string;
+    role: "ADMIN" | "USER";
 };
 
 function dateLabel(value: string) {
@@ -74,47 +88,91 @@ export default function AdminPage() {
     const [data, setData] = useState<AdminActivityPayload | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [createUserForm, setCreateUserForm] = useState<CreateUserForm>({
+        name: "",
+        username: "",
+        email: "",
+        phone: "",
+        password: "",
+        role: "USER",
+    });
+    const [createUserError, setCreateUserError] = useState("");
+    const [createUserSuccess, setCreateUserSuccess] = useState("");
+    const [creatingUser, setCreatingUser] = useState(false);
+
+    const loadAdminData = useCallback(async () => {
+        setLoading(true);
+        setError("");
+
+        try {
+            const result = await fetch("/api/admin/activity", {
+                cache: "no-store",
+            });
+
+            if (!result.ok) {
+                const payload = await result.json().catch(() => null);
+                throw new Error(
+                    payload?.error ?? `Request failed with status ${result.status}`
+                );
+            }
+
+            const payload = (await result.json()) as AdminActivityPayload;
+            setData(payload);
+        } catch (requestError) {
+            setError(
+                requestError instanceof Error
+                    ? requestError.message
+                    : "Failed to load admin activity."
+            );
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
-        let active = true;
+        void loadAdminData();
+    }, [loadAdminData]);
 
-        (async () => {
-            try {
-                const result = await fetch("/api/admin/activity", {
-                    cache: "no-store",
-                });
+    async function handleCreateUser(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        setCreateUserError("");
+        setCreateUserSuccess("");
+        setCreatingUser(true);
 
-                if (!result.ok) {
-                    const payload = await result.json().catch(() => null);
-                    throw new Error(
-                        payload?.error ??
-                            `Request failed with status ${result.status}`
-                    );
-                }
+        try {
+            const result = await fetch("/api/admin/users", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(createUserForm),
+            });
 
-                const payload = (await result.json()) as AdminActivityPayload;
-                if (active) {
-                    setData(payload);
-                }
-            } catch (requestError) {
-                if (active) {
-                    setError(
-                        requestError instanceof Error
-                            ? requestError.message
-                            : "Failed to load admin activity."
-                    );
-                }
-            } finally {
-                if (active) {
-                    setLoading(false);
-                }
+            const payload = await result.json().catch(() => null);
+            if (!result.ok) {
+                throw new Error(payload?.error ?? "Failed to create user.");
             }
-        })();
 
-        return () => {
-            active = false;
-        };
-    }, []);
+            setCreateUserForm({
+                name: "",
+                username: "",
+                email: "",
+                phone: "",
+                password: "",
+                role: "USER",
+            });
+            setCreateUserSuccess("User created successfully.");
+            await loadAdminData();
+        } catch (createError) {
+            setCreateUserError(
+                createError instanceof Error
+                    ? createError.message
+                    : "Failed to create user."
+            );
+        } finally {
+            setCreatingUser(false);
+        }
+    }
 
     const stats = useMemo(() => {
         return {
@@ -122,6 +180,7 @@ export default function AdminPage() {
             logins: data?.loginEvents.length ?? 0,
             predictions: data?.predictions.length ?? 0,
             uploads: data?.uploads.length ?? 0,
+            serverPhotos: data?.serverPhotos.length ?? 0,
         };
     }, [data]);
 
@@ -154,7 +213,127 @@ export default function AdminPage() {
                             <h2>{stats.uploads}</h2>
                             <p>Uploaded Images</p>
                         </div>
+                        <div className="admin-stat">
+                            <h2>{stats.serverPhotos}</h2>
+                            <p>Server Folder Photos</p>
+                        </div>
                     </div>
+
+                    <section className="admin-section">
+                        <h2>Create User</h2>
+                        <form
+                            className="admin-user-form"
+                            onSubmit={handleCreateUser}
+                        >
+                            <div className="admin-form-grid">
+                                <label className="admin-form-field">
+                                    <span>Name</span>
+                                    <input
+                                        required
+                                        value={createUserForm.name}
+                                        onChange={(event) =>
+                                            setCreateUserForm((previous) => ({
+                                                ...previous,
+                                                name: event.target.value,
+                                            }))
+                                        }
+                                    />
+                                </label>
+
+                                <label className="admin-form-field">
+                                    <span>Username</span>
+                                    <input
+                                        required
+                                        value={createUserForm.username}
+                                        onChange={(event) =>
+                                            setCreateUserForm((previous) => ({
+                                                ...previous,
+                                                username: event.target.value,
+                                            }))
+                                        }
+                                    />
+                                </label>
+
+                                <label className="admin-form-field">
+                                    <span>Email (optional)</span>
+                                    <input
+                                        type="email"
+                                        value={createUserForm.email}
+                                        onChange={(event) =>
+                                            setCreateUserForm((previous) => ({
+                                                ...previous,
+                                                email: event.target.value,
+                                            }))
+                                        }
+                                    />
+                                </label>
+
+                                <label className="admin-form-field">
+                                    <span>Phone (optional)</span>
+                                    <input
+                                        value={createUserForm.phone}
+                                        onChange={(event) =>
+                                            setCreateUserForm((previous) => ({
+                                                ...previous,
+                                                phone: event.target.value,
+                                            }))
+                                        }
+                                    />
+                                </label>
+
+                                <label className="admin-form-field">
+                                    <span>Password</span>
+                                    <input
+                                        type="password"
+                                        required
+                                        value={createUserForm.password}
+                                        onChange={(event) =>
+                                            setCreateUserForm((previous) => ({
+                                                ...previous,
+                                                password: event.target.value,
+                                            }))
+                                        }
+                                    />
+                                </label>
+
+                                <label className="admin-form-field">
+                                    <span>Role</span>
+                                    <select
+                                        value={createUserForm.role}
+                                        onChange={(event) =>
+                                            setCreateUserForm((previous) => ({
+                                                ...previous,
+                                                role: event.target
+                                                    .value as CreateUserForm["role"],
+                                            }))
+                                        }
+                                    >
+                                        <option value="USER">USER</option>
+                                        <option value="ADMIN">ADMIN</option>
+                                    </select>
+                                </label>
+                            </div>
+
+                            <div className="admin-form-actions">
+                                <button type="submit" disabled={creatingUser}>
+                                    {creatingUser
+                                        ? "Creating..."
+                                        : "Create User"}
+                                </button>
+                            </div>
+
+                            {createUserError && (
+                                <p className="admin-feedback error">
+                                    {createUserError}
+                                </p>
+                            )}
+                            {createUserSuccess && (
+                                <p className="admin-feedback success">
+                                    {createUserSuccess}
+                                </p>
+                            )}
+                        </form>
+                    </section>
 
                     <section className="admin-section">
                         <h2>Users</h2>
@@ -252,6 +431,34 @@ export default function AdminPage() {
                                         <p>{dateLabel(upload.createdAt)}</p>
                                         <a
                                             href={`/uploads/${upload.imagePath}`}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                        >
+                                            Open image
+                                        </a>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+
+                    <section className="admin-section">
+                        <h2>Server Folder Photos</h2>
+                        <div className="admin-photo-grid">
+                            {data.serverPhotos.map((photo) => (
+                                <div
+                                    key={photo.relativePath}
+                                    className="admin-photo"
+                                >
+                                    <img
+                                        src={`/uploads/${photo.relativePath}`}
+                                        alt={photo.fileName}
+                                    />
+                                    <div className="admin-photo-meta">
+                                        <p>{photo.fileName}</p>
+                                        <p>Folder: {photo.folder}</p>
+                                        <a
+                                            href={`/uploads/${photo.relativePath}`}
                                             target="_blank"
                                             rel="noreferrer"
                                         >

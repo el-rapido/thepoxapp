@@ -46,6 +46,58 @@
     font-size: 1.1rem;
 }
 
+.admin-user-form {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: var(--boxshadowD);
+    display: grid;
+    gap: 12px;
+}
+
+.admin-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+}
+
+.admin-form-field {
+    display: grid;
+    gap: 6px;
+}
+
+.admin-form-field span {
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.admin-form-field input,
+.admin-form-field select {
+    border: 1px solid #d3d7df;
+    border-radius: 6px;
+    padding: 10px;
+    outline: none;
+}
+
+.admin-form-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.admin-feedback {
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.admin-feedback.error {
+    color: #a30000;
+}
+
+.admin-feedback.success {
+    color: #1b7f2a;
+}
+
 .admin-table {
     display: grid;
     gap: 8px;

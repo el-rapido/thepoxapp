@@ -2,12 +2,43 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 import { getSessionUserFromRequest } from "@/lib/auth";
+import { LABEL_FOLDERS, normalizeLabelFolder } from "@/lib/labels";
 
 export const config = {
     api: {
         bodyParser: true, // Default body parser
     },
 };
+
+function ensureLabelFolders(uploadDir: string) {
+    if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+    }
+
+    for (const folder of LABEL_FOLDERS) {
+        const folderPath = path.join(uploadDir, folder);
+        if (!fs.existsSync(folderPath)) {
+            fs.mkdirSync(folderPath, { recursive: true });
+        }
+    }
+}
+
+export async function GET(request: NextRequest) {
+    const user = await getSessionUserFromRequest(request);
+    if (!user) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const uploadDir = path.join(process.cwd(), "uploads");
+    ensureLabelFolders(uploadDir);
+
+    return NextResponse.json(
+        {
+            labels: LABEL_FOLDERS,
+        },
+        { status: 200 }
+    );
+}
 
 export async function POST(request: NextRequest) {
     try {
@@ -22,15 +53,21 @@ export async function POST(request: NextRequest) {
         // Parse the JSON body
         const body = await request.json();
         const { folderName, fileName } = body;
+        const normalizedFolderName = normalizeLabelFolder(
+            folderName?.toString?.() ?? ""
+        );
 
-        // Ensure the uploads directory exists
-        const uploadDir = path.join(process.cwd(), "uploads");
-        if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir, { recursive: true });
+        if (!normalizedFolderName) {
+            return NextResponse.json(
+                { error: "Invalid label folder name." },
+                { status: 400 }
+            );
         }
 
-        // Ensure the subdirectory (e.g., chickenpox) exists
-        const subDir = path.join(uploadDir, folderName);
+        const uploadDir = path.join(process.cwd(), "uploads");
+        ensureLabelFolders(uploadDir);
+
+        const subDir = path.join(uploadDir, normalizedFolderName);
         if (!fs.existsSync(subDir)) {
             fs.mkdirSync(subDir, { recursive: true });
         }
@@ -54,7 +91,10 @@ export async function POST(request: NextRequest) {
             fs.copyFileSync(sourceFilePath, destinationFilePath);
 
             return NextResponse.json(
-                { filePath: `/uploads/${folderName}/${fileName}` },
+                {
+                    filePath: `/uploads/${normalizedFolderName}/${fileName}`,
+                    folderName: normalizedFolderName,
+                },
                 { status: 200 }
             );
         } else {

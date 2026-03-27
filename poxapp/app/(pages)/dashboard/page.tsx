@@ -1,6 +1,6 @@
 "use client";
 
-import React, { ChangeEvent, useState } from "react";
+import React, { ChangeEvent, useEffect, useState } from "react";
 import { Popup, PopupBody, PopupFooter } from "@/app/components/Popup";
 import "@/app/styles/main.css";
 import "@/app/styles/reviewpopup.css";
@@ -8,19 +8,14 @@ import "@/app/styles/changePrediction.css";
 
 import useFileUpload from "@/app/hooks/useFileUpload";
 import Loader from "@/app/components/Loader/Loader";
+import { LABEL_FOLDERS, normalizeLabelFolder } from "@/lib/labels";
 
 const DOMAIN = "http://pox.carboncloud.pro";
 
-const availableChoices = [
-    "chickenpox",
-    "acne",
-    "monkeypox",
-    "non-skin",
-    "normal",
-    "not-identified",
-];
-
 export default function Dashboard() {
+    const [availableChoices, setAvailableChoices] = useState<string[]>([
+        ...LABEL_FOLDERS,
+    ]);
     const [predictionPopup, setPredictionPopup] = useState(false);
     const [reviewPopup, setReviewPopup] = useState(false);
     const [changePredictionPopup, setChangePredictionPopup] = useState(false);
@@ -45,6 +40,34 @@ export default function Dashboard() {
     const [changeValidationError, setChangeValidationError] = useState("");
 
     const { uploadFile, isUploading } = useFileUpload();
+
+    useEffect(() => {
+        let active = true;
+
+        (async () => {
+            try {
+                const result = await fetch("/api/reference", {
+                    method: "GET",
+                    cache: "no-store",
+                });
+
+                if (!result.ok) {
+                    return;
+                }
+
+                const payload = await result.json();
+                if (active && Array.isArray(payload?.labels)) {
+                    setAvailableChoices(payload.labels);
+                }
+            } catch (error) {
+                console.error(error);
+            }
+        })();
+
+        return () => {
+            active = false;
+        };
+    }, []);
 
     async function handleAskQuestion() {
         const prediction = predictedResults.className.trim();
@@ -153,10 +176,12 @@ export default function Dashboard() {
             setAbsoluteImageURL(`${DOMAIN}/uploads/${fileName}`);
 
             const accuracy = Number(predictionResults.max_prob);
-            const predictedClass =
+            const rawPredictedClass =
                 accuracy < 0.65
                     ? "not-identified"
                     : predictionResults.predicted_class;
+            const predictedClass =
+                normalizeLabelFolder(rawPredictedClass) ?? "not-identified";
 
             setPredictedResults({
                 className: predictedClass,
@@ -217,7 +242,8 @@ export default function Dashboard() {
     }
 
     async function confirmPredictionChanges() {
-        const finalChoice = selectedChoice.trim();
+        const finalChoice =
+            normalizeLabelFolder(selectedChoice.trim()) ?? "";
         if (!finalChoice) {
             setChangeValidationError("Please choose the final prediction.");
             return;
