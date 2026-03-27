@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
+import { getSessionUserFromRequest } from "@/lib/auth";
 
 export const config = {
     api: {
@@ -10,6 +11,14 @@ export const config = {
 
 export async function POST(request: NextRequest) {
     try {
+        const user = await getSessionUserFromRequest(request);
+        if (!user) {
+            return NextResponse.json(
+                { error: "Unauthorized" },
+                { status: 401 }
+            );
+        }
+
         // Parse the JSON body
         const body = await request.json();
         const { folderName, fileName } = body;

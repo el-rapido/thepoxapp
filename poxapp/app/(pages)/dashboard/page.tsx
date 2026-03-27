@@ -9,7 +9,7 @@ import "@/app/styles/changePrediction.css";
 import useFileUpload from "@/app/hooks/useFileUpload";
 import Loader from "@/app/components/Loader/Loader";
 
-const DOMAIN = "http://pox.carboncloud.pro"; // This is to retrieve the image for GPT
+const DOMAIN = "http://pox.carboncloud.pro";
 
 const availableChoices = [
     "chickenpox",
@@ -34,12 +34,15 @@ export default function Dashboard() {
     const [userQuestion, setUserQuestion] = useState("");
     const [isPredicting, setIsPredicting] = useState(false);
     const [gptResult, setGPTResult] = useState("...");
-
     const [changingPrediction, setChangingPrediction] = useState(false);
-
     const [selectedChoice, setSelectedChoice] = useState("");
     const [userComment, setUserComment] = useState("");
     const [regularFilename, setRegularFilename] = useState("");
+    const [predictionRecordId, setPredictionRecordId] = useState<number | null>(
+        null
+    );
+    const [mustConfirmPrediction, setMustConfirmPrediction] = useState(false);
+    const [changeValidationError, setChangeValidationError] = useState("");
 
     const { uploadFile, isUploading } = useFileUpload();
 
@@ -48,7 +51,6 @@ export default function Dashboard() {
         const question = userQuestion.trim();
 
         if (!prediction || !question) {
-            // return new Error("Requirements not satisfied"); //TODO: show toast
             alert("prediction or quesion fields are empty");
             return;
         }
@@ -69,32 +71,25 @@ export default function Dashboard() {
         setGPTResult(returnText);
     }
 
-    // async function getComments() {
-    //     try {
-    //         const result = await fetch("/api/comments", {
-    //             method: "GET",
-    //         });
-
-    //         return JSON.parse(await result.text());
-    //     } catch (error) {
-    //         console.error(error);
-    //     }
-    // }
-
     async function commentOnImage(
         comment: string,
         imagePath: string,
         classification: string,
-        changedClassification: string
+        changedClassification: string,
+        predictionId: number | null
     ) {
         try {
             const result = await fetch("/api/comments", {
                 method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
                 body: JSON.stringify({
                     comment,
                     imagePath,
                     classification,
                     changedClassification,
+                    predictionId,
                 }),
             });
 
@@ -104,27 +99,18 @@ export default function Dashboard() {
         }
     }
 
-    // useEffect(() => {
-    //     // (async () => {
-    //     //     const results = await getComments();
-    //     //     console.log("results: ", results);
-    //     // })();
-    // }, []);
-
     async function startPrediction() {
         try {
             if (!image) {
                 return;
             }
 
-            const result = await uploadFile(image);
-            console.log("upload result: ", result);
-
-            if (!result) {
+            const uploadResult = await uploadFile(image);
+            if (!uploadResult) {
                 throw new Error("Image upload failed");
             }
 
-            const fileName = result.split("/uploads/")[1];
+            const fileName = uploadResult.filePath.split("/uploads/")[1];
             if (!fileName) {
                 throw new Error("Could not determine the uploaded filename");
             }
@@ -166,21 +152,48 @@ export default function Dashboard() {
             setRegularFilename(fileName);
             setAbsoluteImageURL(`${DOMAIN}/uploads/${fileName}`);
 
-            console.log("predictionResults: ", predictionResults);
+            const accuracy = Number(predictionResults.max_prob);
+            const predictedClass =
+                accuracy < 0.65
+                    ? "not-identified"
+                    : predictionResults.predicted_class;
 
-            const accuracy = predictionResults.max_prob;
             setPredictedResults({
-                className:
-                    accuracy < 0.65
-                        ? "not-identified"
-                        : predictionResults.predicted_class,
+                className: predictedClass,
                 date: new Date().toDateString(),
             });
 
-            setImage(undefined);
+            const predictionLogResponse = await fetch("/api/predictions", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    uploadedImageId: uploadResult.uploadId,
+                    imagePath: fileName,
+                    predictedClass,
+                    finalClass: predictedClass,
+                    confidence: Number.isFinite(accuracy) ? accuracy : null,
+                    modelName: "model_10-0.92.keras",
+                }),
+            });
 
+            if (predictionLogResponse.ok) {
+                const predictionLog = await predictionLogResponse.json();
+                setPredictionRecordId(predictionLog.id ?? null);
+            } else {
+                setPredictionRecordId(null);
+            }
+
+            setSelectedChoice(predictedClass);
+            setUserComment("");
+            setChangeValidationError("");
+            setMustConfirmPrediction(true);
+
+            setImage(undefined);
             setPredictionPopup(false);
             setReviewPopup(true);
+            setChangePredictionPopup(true);
         } catch (error) {
             console.error(error);
         } finally {
@@ -194,7 +207,6 @@ export default function Dashboard() {
                 const file = event.target.files[0];
                 setImage(file);
                 const url = URL.createObjectURL(file);
-                console.log("url", url);
                 setImageURL(url);
             }
         } catch (error) {
@@ -205,48 +217,69 @@ export default function Dashboard() {
     }
 
     async function confirmPredictionChanges() {
+        const finalChoice = selectedChoice.trim();
+        if (!finalChoice) {
+            setChangeValidationError("Please choose the final prediction.");
+            return;
+        }
+
         setChangingPrediction(true);
+        setChangeValidationError("");
 
-        console.log("changedClassification: ", selectedChoice);
-        console.log("imagePath: ", regularFilename);
-        console.log("comment: ", userComment);
-        console.log("classification: ", predictedResults.className);
+        try {
+            const currentClassification = predictedResults.className;
 
-        setPredictedResults({ ...predictedResults, className: selectedChoice });
+            if (finalChoice !== currentClassification) {
+                await fetch("/api/reference", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        fileName: regularFilename,
+                        folderName: finalChoice,
+                    }),
+                });
+            }
 
-        // save image into correct folder
+            if (predictionRecordId) {
+                await fetch(`/api/predictions/${predictionRecordId}`, {
+                    method: "PATCH",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        finalClass: finalChoice,
+                    }),
+                });
+            }
 
-        const changeResults = await fetch(`api/reference/`, {
-            method: "POST",
-            body: JSON.stringify({
-                fileName: regularFilename,
-                folderName: selectedChoice
-            })
-        });
+            await commentOnImage(
+                userComment,
+                regularFilename,
+                currentClassification,
+                finalChoice,
+                predictionRecordId
+            );
 
-        console.log("change results: ", await changeResults.text())
+            setPredictedResults((previous) => ({
+                ...previous,
+                className: finalChoice,
+            }));
 
-        const imageComment = await commentOnImage(
-            userComment,
-            regularFilename,
-            predictedResults.className,
-            selectedChoice
-        );
-
-        console.log("comment result", imageComment);
-
-        //close popup
-        setChangePredictionPopup(false);
-        setChangingPrediction(false);
+            setChangePredictionPopup(false);
+            setMustConfirmPrediction(false);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setChangingPrediction(false);
+        }
     }
 
     return (
         <>
             <div className="predict-button-container">
-                <div
-                    className="button"
-                    onClick={() => setPredictionPopup(true)}
-                >
+                <div className="button" onClick={() => setPredictionPopup(true)}>
                     Perform Skin Disease Prediction
                 </div>
             </div>
@@ -303,7 +336,12 @@ export default function Dashboard() {
             {reviewPopup && (
                 <Popup
                     title="Prediction Results"
+                    closable={!mustConfirmPrediction}
                     onClose={() => {
+                        if (mustConfirmPrediction) {
+                            return;
+                        }
+
                         setReviewPopup(false);
                         setImageURL(undefined);
                     }}
@@ -355,8 +393,17 @@ export default function Dashboard() {
                                             setChangePredictionPopup(true)
                                         }
                                     >
-                                        Change Prediction
+                                        {mustConfirmPrediction
+                                            ? "Finalize Prediction (Required)"
+                                            : "Change Prediction"}
                                     </div>
+
+                                    {mustConfirmPrediction && (
+                                        <p className="mandatory-change-message">
+                                            You must confirm the final prediction
+                                            before closing this result.
+                                        </p>
+                                    )}
                                 </div>
 
                                 <div className="stretch-container">
@@ -385,8 +432,6 @@ export default function Dashboard() {
                                 </div>
                             </div>
                         </div>
-
-                        {/* <script src="chatgpt-prediction.js"></script> */}
                     </PopupBody>
                 </Popup>
             )}
@@ -394,7 +439,14 @@ export default function Dashboard() {
             {changePredictionPopup && (
                 <Popup
                     title="Change Prediction"
-                    onClose={() => setChangePredictionPopup(false)}
+                    closable={!mustConfirmPrediction}
+                    onClose={() => {
+                        if (mustConfirmPrediction) {
+                            return;
+                        }
+
+                        setChangePredictionPopup(false);
+                    }}
                 >
                     <PopupBody>
                         <div className="popup-body change-prediction-body">
@@ -410,30 +462,28 @@ export default function Dashboard() {
                             <div className="change-to-container">
                                 <p className="mini-title">Change to:</p>
                                 <div className="change-to-options">
-                                    {availableChoices
-                                        .filter(
-                                            (option) =>
-                                                option !=
-                                                predictedResults.className
-                                        )
-                                        .map((choice, index) => (
-                                            <label
-                                                key={index}
-                                                className="change-option"
-                                            >
-                                                <input
-                                                    type="radio"
-                                                    name="radio"
-                                                    required
-                                                    onChange={() =>
-                                                        setSelectedChoice(
-                                                            choice
-                                                        )
-                                                    }
-                                                />
-                                                {choice}
-                                            </label>
-                                        ))}
+                                    {availableChoices.map((choice) => (
+                                        <label
+                                            key={choice}
+                                            className="change-option"
+                                        >
+                                            <input
+                                                type="radio"
+                                                name="radio"
+                                                checked={
+                                                    selectedChoice === choice
+                                                }
+                                                onChange={() => {
+                                                    setSelectedChoice(choice);
+                                                    setChangeValidationError("");
+                                                }}
+                                            />
+                                            {choice ===
+                                            predictedResults.className
+                                                ? `${choice} (keep current prediction)`
+                                                : choice}
+                                        </label>
+                                    ))}
                                 </div>
                             </div>
 
@@ -446,20 +496,30 @@ export default function Dashboard() {
                                     onChange={(e) =>
                                         setUserComment(e.target.value)
                                     }
+                                    value={userComment}
                                 />
                             </div>
                             <p className="disclaimer">
-                                The prediction value will be changed to the new
-                                choice. The image will be used to improve future
-                                versions of the model.
+                                The prediction value will be saved as your final
+                                choice and the image will be available for admin
+                                review.
                             </p>
+
+                            {changeValidationError && (
+                                <p className="mandatory-change-message">
+                                    {changeValidationError}
+                                </p>
+                            )}
 
                             <button
                                 className="button"
                                 type="button"
                                 onClick={confirmPredictionChanges}
+                                disabled={changingPrediction}
                             >
-                                Confirm Changes
+                                {changingPrediction
+                                    ? "Saving..."
+                                    : "Confirm Changes"}
                             </button>
                         </div>
 
@@ -468,7 +528,5 @@ export default function Dashboard() {
                 </Popup>
             )}
         </>
-
-        // <?php include "components/changePrediction.php" ?>
     );
 }

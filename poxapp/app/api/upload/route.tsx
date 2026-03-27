@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
+import prisma from "@/prisma/client";
+import { getSessionUserFromRequest } from "@/lib/auth";
 
 export const config = {
     api: {
@@ -17,6 +19,14 @@ async function ensureUploadDir(uploadDir: string) {
 
 export async function POST(request: NextRequest) {
     try {
+        const user = await getSessionUserFromRequest(request);
+        if (!user) {
+            return NextResponse.json(
+                { error: "Unauthorized" },
+                { status: 401 }
+            );
+        }
+
         const uploadDir = path.join(process.cwd(), "uploads");
         await ensureUploadDir(uploadDir);
 
@@ -42,8 +52,16 @@ export async function POST(request: NextRequest) {
         const data = Buffer.from(await (file as File).arrayBuffer());
         await fs.promises.writeFile(filePath, data);
 
+        const upload = await prisma.uploadedImage.create({
+            data: {
+                userId: user.id,
+                imagePath: uniqueName,
+                originalName: (file as File).name || null,
+            },
+        });
+
         return NextResponse.json(
-            { filePath: `/uploads/${uniqueName}` },
+            { filePath: `/uploads/${uniqueName}`, uploadId: upload.id },
             { status: 200 }
         );
     } catch (error) {

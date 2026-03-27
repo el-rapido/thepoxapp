@@ -96,3 +96,9 @@
     font-size: 13px;
     color: gray;
 }
+
+.mandatory-change-message {
+    color: #a30000;
+    font-size: 13px;
+    font-weight: 600;
+}

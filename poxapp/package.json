@@ -6,7 +6,10 @@
     "dev": "PORT=7134 next dev --turbopack",
     "build": "next build",
     "start": "PORT=7134 next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate deploy",
+    "db:seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.4.1",
@@ -27,5 +30,8 @@
     "prisma": "^6.4.1",
     "tsx": "^4.19.3",
     "typescript": "^5.8.2"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   }
 }

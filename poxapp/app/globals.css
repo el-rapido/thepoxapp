@@ -147,6 +147,21 @@ body {
     grid-gap: 20px;
 }
 
+.auth-user-info {
+    display: grid;
+    gap: 4px;
+}
+
+.auth-user-name {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.auth-user-role {
+    color: var(--light-gray);
+    font-size: 0.8rem;
+}
+
 .header .right-side img:nth-child(2) {
     height: 30px;
     margin-left: 3px;

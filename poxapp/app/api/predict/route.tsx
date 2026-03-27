@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getSessionUserFromRequest } from "@/lib/auth";
 
 const BACKENDURL =
     process.env.BACKEND_URL ??
@@ -6,6 +7,11 @@ const BACKENDURL =
     "http://backend:7135";
 
 export async function POST(request: NextRequest) {
+    const user = await getSessionUserFromRequest(request);
+    if (!user) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
     if (body.fileName) {
         const { fileName } = body;

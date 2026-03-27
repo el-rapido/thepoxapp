@@ -1,8 +1,15 @@
+"use client";
+
 import Link from "next/link";
 import React from "react";
 import Image from "next/image";
+import type { AuthUser } from "@/lib/types";
 
-function Menu() {
+type MenuProps = {
+    user: AuthUser;
+};
+
+function Menu({ user }: MenuProps) {
     return (
         <div className="menu">
             <div className="neu-logo">
@@ -82,6 +89,22 @@ function Menu() {
                     <div className="text">Collaborators</div>
                 </div>
             </Link>
+
+            {user.role === "ADMIN" && (
+                <Link href="/admin">
+                    <div className="navigation-item">
+                        <div className="image">
+                            <Image
+                                src="/assets/icons/layers.svg"
+                                alt=""
+                                width={40}
+                                height={40}
+                            />
+                        </div>
+                        <div className="text">Admin Dashboard</div>
+                    </div>
+                </Link>
+            )}
 
             <Link href="/logout">
                 <div className="navigation-item">

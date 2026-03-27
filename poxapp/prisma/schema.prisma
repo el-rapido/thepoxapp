@@ -14,10 +14,98 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum UserRole {
+  ADMIN
+  USER
+}
+
+model User {
+  id                 Int            @id @default(autoincrement())
+  username           String         @unique
+  usernameNormalized String         @unique
+  email              String?        @unique
+  emailNormalized    String?        @unique
+  passwordHash       String
+  name               String
+  phone              String?
+  role               UserRole       @default(USER)
+  isActive           Boolean        @default(true)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  sessions           LoginSession[]
+  loginEvents        LoginEvent[]
+  uploads            UploadedImage[]
+  predictions        Prediction[]
+  comments           Comments[]
+}
+
+model LoginSession {
+  id        Int       @id @default(autoincrement())
+  tokenHash String    @unique
+  userId    Int
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  revokedAt DateTime?
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model LoginEvent {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  loggedInAt DateTime @default(now())
+  ipAddress String?
+  userAgent String?
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, loggedInAt])
+}
+
+model UploadedImage {
+  id           Int          @id @default(autoincrement())
+  userId       Int
+  imagePath    String
+  originalName String?
+  createdAt    DateTime     @default(now())
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  predictions  Prediction[]
+
+  @@index([userId, createdAt])
+}
+
+model Prediction {
+  id             Int           @id @default(autoincrement())
+  userId         Int
+  uploadedImageId Int?
+  imagePath      String
+  predictedClass String
+  finalClass     String
+  confidence     Float?
+  modelName      String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  uploadedImage  UploadedImage? @relation(fields: [uploadedImageId], references: [id], onDelete: SetNull)
+  comments       Comments[]
+
+  @@index([userId, createdAt])
+  @@index([uploadedImageId])
+}
+
 model Comments {
-  id                    Int    @id @default(autoincrement())
+  id                    Int        @id @default(autoincrement())
   comment               String
   imagePath             String
   classification        String
   changedClassification String
+  createdAt             DateTime   @default(now())
+  userId                Int?
+  predictionId          Int?
+  user                  User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  prediction            Prediction? @relation(fields: [predictionId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([predictionId])
 }

@@ -4,115 +4,67 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import "./styles/index.css";
 
-type User = {
-    username: string;
-    password: string;
-    name: string;
-    phone: string;
-    email: string;
-};
-
-const AUTH_STORAGE_KEY = "poxapp-auth-user";
-
-const USERS: User[] = [
-    {
-        username: "profdux",
-        password: "dux123",
-        name: "Profdux",
-        phone: "",
-        email: "",
-    },
-    {
-        username: "mugedeniz90@gmail.com",
-        password: "mugedeniz",
-        name: "Muge Deniz",
-        phone: "",
-        email: "mugedeniz90@gmail.com",
-    },
-    {
-        username: "salihmujdat.balkan@neu.edu.tr",
-        password: "05338388625",
-        name: "Prof. Dr. Salih Müjdat Balkan",
-        phone: "05338388625",
-        email: "salihmujdat.balkan@neu.edu.tr",
-    },
-    {
-        username: "kaya.suer@neu.edu.tr",
-        password: "05338843723",
-        name: "Prof. Dr. Kaya Süer",
-        phone: "05338843723",
-        email: "kaya.suer@neu.edu.tr",
-    },
-    {
-        username: "ceyhun.dalkan@med.neu.edu.tr",
-        password: "05338422857",
-        name: "Prof. Dr. Ceyhun Dalkan",
-        phone: "05338422857",
-        email: "ceyhun.dalkan@med.neu.edu.tr",
-    },
-    {
-        username: "serap.maden@neu.edu.tr",
-        password: "05391062693",
-        name: "Uzm. Dr. Serap Maden",
-        phone: "05391062693",
-        email: "serap.maden@neu.edu.tr",
-    },
-];
-
-function normalizeValue(value: string) {
-    return value.trim().toLowerCase();
-}
-
 export default function Home() {
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
     const [loginError, setLoginError] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const router = useRouter();
 
     useEffect(() => {
-        const authUser = localStorage.getItem(AUTH_STORAGE_KEY);
-        if (authUser) {
-            router.push("/dashboard");
-        }
+        let active = true;
+
+        (async () => {
+            const result = await fetch("/api/auth/me", { cache: "no-store" });
+            if (active && result.ok) {
+                router.replace("/dashboard");
+            }
+        })();
+
+        return () => {
+            active = false;
+        };
     }, [router]);
 
-    function login(event: FormEvent<HTMLFormElement>) {
+    async function login(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
 
-        const normalizedUsername = normalizeValue(username);
-        const normalizedPassword = password.trim();
-
-        if (!normalizedUsername || !normalizedPassword) {
+        const identifier = username.trim();
+        const trimmedPassword = password.trim();
+        if (!identifier || !trimmedPassword) {
             setLoginError("Please enter username/email and password.");
             return;
         }
 
-        const selectedUser = USERS.find((user) => {
-            const matchesIdentifier =
-                normalizeValue(user.username) === normalizedUsername ||
-                normalizeValue(user.email) === normalizedUsername;
-            const matchesPassword = user.password === normalizedPassword;
-            return matchesIdentifier && matchesPassword;
-        });
-
-        if (!selectedUser) {
-            setLoginError("Invalid credentials.");
-            return;
-        }
-
-        localStorage.setItem(
-            AUTH_STORAGE_KEY,
-            JSON.stringify({
-                username: selectedUser.username,
-                name: selectedUser.name,
-                email: selectedUser.email,
-                phone: selectedUser.phone,
-            })
-        );
-
+        setIsSubmitting(true);
         setLoginError("");
-        router.push("/dashboard");
+
+        try {
+            const result = await fetch("/api/auth/login", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    identifier,
+                    password: trimmedPassword,
+                }),
+            });
+
+            if (!result.ok) {
+                const errorPayload = await result.json().catch(() => null);
+                setLoginError(errorPayload?.error ?? "Invalid credentials.");
+                return;
+            }
+
+            router.push("/dashboard");
+        } catch (error) {
+            console.error(error);
+            setLoginError("Login request failed.");
+        } finally {
+            setIsSubmitting(false);
+        }
     }
 
     return (
@@ -150,7 +102,9 @@ export default function Home() {
                                 onChange={(e) => setPassword(e.target.value)}
                             />
                         </div>
-                        <button type="submit">Login</button>
+                        <button type="submit" disabled={isSubmitting}>
+                            {isSubmitting ? "Logging in..." : "Login"}
+                        </button>
                         <div
                             className={`bubble-message-container ${
                                 loginError ? "visible" : ""

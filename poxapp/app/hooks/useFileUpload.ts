@@ -1,5 +1,10 @@
 import { useState } from "react";
 
+type UploadResult = {
+    filePath: string;
+    uploadId: number;
+};
+
 const useFileUpload = () => {
     const [isUploading, setIsUploading] = useState(false);
     const [uploadError, setUploadError] = useState<string | null>(null);
@@ -26,8 +31,12 @@ const useFileUpload = () => {
                 throw new Error("Failed to upload the file");
             }
 
-            const uploadResult = await uploadResponse.json();
-            return uploadResult.filePath || ""; // Adjust based on your API response structure
+            const uploadResult = (await uploadResponse.json()) as UploadResult;
+            if (!uploadResult.filePath || !uploadResult.uploadId) {
+                throw new Error("Upload response missing file details");
+            }
+
+            return uploadResult;
         } catch (error) {
             setUploadError("Error uploading file");
             console.error("Upload Error:", error);
