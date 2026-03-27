@@ -206,35 +206,42 @@
 
 .admin-image-actions {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     margin-top: 6px;
     flex-wrap: wrap;
 }
 
 .admin-icon-button {
-    min-height: 34px;
+    width: 24px;
+    height: 24px;
     display: inline-flex;
     align-items: center;
-    gap: 6px;
     justify-content: center;
-    border: 1px solid #cfd4dc;
-    background: #f8f9fb;
-    border-radius: 8px;
+    border: 1px solid #9aa5b4;
+    background: #f7fafc;
+    border-radius: 6px;
     cursor: pointer;
-    padding: 6px 10px;
-    color: #1d2a3a;
+    padding: 0;
+    color: #111827;
     text-decoration: none;
-    font-size: 0.8rem;
-    font-weight: 600;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.12);
 }
 
 .admin-icon-button img {
     object-fit: contain;
+    display: block;
+    opacity: 1;
+    image-rendering: -webkit-optimize-contrast;
 }
 
 .admin-icon-button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+.admin-icon-button:hover {
+    border-color: #4a90e2;
+    background: #eef5ff;
 }
 
 .admin-icon-delete {

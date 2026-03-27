@@ -315,10 +315,9 @@ export default function AdminPage() {
                     <Image
                         src="/assets/icons/aperture.svg"
                         alt="Open"
-                        width={18}
-                        height={18}
+                        width={12}
+                        height={12}
                     />
-                    <span>Open</span>
                 </a>
                 <a
                     href={imageUrl}
@@ -329,10 +328,9 @@ export default function AdminPage() {
                     <Image
                         src="/assets/icons/down.png"
                         alt="Download"
-                        width={18}
-                        height={18}
+                        width={12}
+                        height={12}
                     />
-                    <span>Download</span>
                 </a>
                 <button
                     type="button"
@@ -344,10 +342,9 @@ export default function AdminPage() {
                     <Image
                         src="/assets/icons/delete.png"
                         alt="Delete"
-                        width={18}
-                        height={18}
+                        width={12}
+                        height={12}
                     />
-                    <span>{isDeleting ? "Deleting..." : "Delete"}</span>
                 </button>
             </div>
         );
