@@ -156,10 +156,36 @@
     color: var(--accent);
 }
 
-.admin-photo-meta a {
-    text-decoration: none;
-    color: var(--accent);
-    font-weight: 600;
+.admin-image-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.admin-icon-button {
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #cfd4dc;
+    background: #f8f9fb;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.admin-icon-button img {
+    object-fit: contain;
+}
+
+.admin-icon-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.admin-icon-delete {
+    border-color: #e7c1c1;
+    background: #fff5f5;
 }
 
 @media screen and (max-width: 900px) {

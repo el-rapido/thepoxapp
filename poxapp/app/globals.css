@@ -138,6 +138,12 @@ body {
     -webkit-backdrop-filter: blur(9.5px);
 }
 
+.header .left-side {
+    display: flex;
+    align-items: center;
+    padding-left: 320px;
+}
+
 .header img {
     height: 35px;
 }
@@ -160,6 +166,12 @@ body {
 .auth-user-role {
     color: var(--light-gray);
     font-size: 0.8rem;
+}
+
+@media screen and (max-width: 1100px) {
+    .header .left-side {
+        padding-left: 100px;
+    }
 }
 
 .header .right-side img:nth-child(2) {

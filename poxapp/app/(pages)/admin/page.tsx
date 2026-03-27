@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import "@/app/styles/admin.css";
 
 type AdminUser = {
@@ -99,6 +100,7 @@ export default function AdminPage() {
     const [createUserError, setCreateUserError] = useState("");
     const [createUserSuccess, setCreateUserSuccess] = useState("");
     const [creatingUser, setCreatingUser] = useState(false);
+    const [deletingImagePath, setDeletingImagePath] = useState("");
 
     const loadAdminData = useCallback(async () => {
         setLoading(true);
@@ -172,6 +174,102 @@ export default function AdminPage() {
         } finally {
             setCreatingUser(false);
         }
+    }
+
+    function buildUploadUrl(relativePath: string) {
+        const encodedPath = relativePath
+            .split("/")
+            .filter(Boolean)
+            .map((part) => encodeURIComponent(part))
+            .join("/");
+
+        return `/uploads/${encodedPath}`;
+    }
+
+    async function handleDeleteImage(relativePath: string) {
+        const shouldDelete = window.confirm(
+            `Delete image "${relativePath}" from server?`
+        );
+        if (!shouldDelete) {
+            return;
+        }
+
+        setDeletingImagePath(relativePath);
+        try {
+            const result = await fetch("/api/admin/images", {
+                method: "DELETE",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ relativePath }),
+            });
+
+            const payload = await result.json().catch(() => null);
+            if (!result.ok) {
+                throw new Error(payload?.error ?? "Failed to delete image.");
+            }
+
+            await loadAdminData();
+        } catch (deleteError) {
+            setError(
+                deleteError instanceof Error
+                    ? deleteError.message
+                    : "Failed to delete image."
+            );
+        } finally {
+            setDeletingImagePath("");
+        }
+    }
+
+    function ImageActions({ relativePath }: { relativePath: string }) {
+        const imageUrl = buildUploadUrl(relativePath);
+        const isDeleting = deletingImagePath === relativePath;
+
+        return (
+            <div className="admin-image-actions">
+                <a
+                    href={imageUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="admin-icon-button"
+                    title="Open image"
+                >
+                    <Image
+                        src="/assets/icons/aperture.svg"
+                        alt="Open"
+                        width={16}
+                        height={16}
+                    />
+                </a>
+                <a
+                    href={imageUrl}
+                    download
+                    className="admin-icon-button"
+                    title="Download image"
+                >
+                    <Image
+                        src="/assets/icons/down.png"
+                        alt="Download"
+                        width={16}
+                        height={16}
+                    />
+                </a>
+                <button
+                    type="button"
+                    className="admin-icon-button admin-icon-delete"
+                    title="Delete image"
+                    onClick={() => handleDeleteImage(relativePath)}
+                    disabled={isDeleting}
+                >
+                    <Image
+                        src="/assets/icons/delete.png"
+                        alt="Delete"
+                        width={16}
+                        height={16}
+                    />
+                </button>
+            </div>
+        );
     }
 
     const stats = useMemo(() => {
@@ -389,7 +487,7 @@ export default function AdminPage() {
                             {data.predictions.map((prediction) => (
                                 <div key={prediction.id} className="admin-photo">
                                     <img
-                                        src={`/uploads/${prediction.imagePath}`}
+                                        src={buildUploadUrl(prediction.imagePath)}
                                         alt={prediction.predictedClass}
                                     />
                                     <div className="admin-photo-meta">
@@ -400,13 +498,9 @@ export default function AdminPage() {
                                         </p>
                                         <p>Final: {prediction.finalClass}</p>
                                         <p>{dateLabel(prediction.createdAt)}</p>
-                                        <a
-                                            href={`/uploads/${prediction.imagePath}`}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                        >
-                                            Open image
-                                        </a>
+                                        <ImageActions
+                                            relativePath={prediction.imagePath}
+                                        />
                                     </div>
                                 </div>
                             ))}
@@ -419,7 +513,7 @@ export default function AdminPage() {
                             {data.uploads.map((upload) => (
                                 <div key={upload.id} className="admin-photo">
                                     <img
-                                        src={`/uploads/${upload.imagePath}`}
+                                        src={buildUploadUrl(upload.imagePath)}
                                         alt={upload.originalName ?? upload.imagePath}
                                     />
                                     <div className="admin-photo-meta">
@@ -429,13 +523,9 @@ export default function AdminPage() {
                                             {upload.originalName ?? "unknown"}
                                         </p>
                                         <p>{dateLabel(upload.createdAt)}</p>
-                                        <a
-                                            href={`/uploads/${upload.imagePath}`}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                        >
-                                            Open image
-                                        </a>
+                                        <ImageActions
+                                            relativePath={upload.imagePath}
+                                        />
                                     </div>
                                 </div>
                             ))}
@@ -451,19 +541,15 @@ export default function AdminPage() {
                                     className="admin-photo"
                                 >
                                     <img
-                                        src={`/uploads/${photo.relativePath}`}
+                                        src={buildUploadUrl(photo.relativePath)}
                                         alt={photo.fileName}
                                     />
                                     <div className="admin-photo-meta">
                                         <p>{photo.fileName}</p>
                                         <p>Folder: {photo.folder}</p>
-                                        <a
-                                            href={`/uploads/${photo.relativePath}`}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                        >
-                                            Open image
-                                        </a>
+                                        <ImageActions
+                                            relativePath={photo.relativePath}
+                                        />
                                     </div>
                                 </div>
                             ))}
