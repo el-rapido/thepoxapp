@@ -98,6 +98,48 @@
     color: #1b7f2a;
 }
 
+.admin-bulk-actions {
+    background: white;
+    border-radius: 12px;
+    padding: 12px 16px;
+    box-shadow: var(--boxshadowD);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.admin-bulk-actions p {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.admin-bulk-actions-buttons {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.admin-bulk-actions-buttons button {
+    border: 1px solid #ccd2db;
+    background: #f8f9fb;
+    color: #1d2a3a;
+    border-radius: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+}
+
+.admin-bulk-actions-buttons button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.admin-bulk-actions-buttons button.danger {
+    background: #fff5f5;
+    border-color: #e7c1c1;
+    color: #8c1f1f;
+}
+
 .admin-table {
     display: grid;
     gap: 8px;
@@ -135,6 +177,12 @@
     border-radius: 12px;
     overflow: hidden;
     box-shadow: var(--boxshadowD);
+    position: relative;
+}
+
+.admin-photo.selected {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
 }
 
 .admin-photo img {
@@ -160,18 +208,24 @@
     display: flex;
     gap: 8px;
     margin-top: 6px;
+    flex-wrap: wrap;
 }
 
 .admin-icon-button {
-    width: 34px;
-    height: 34px;
+    min-height: 34px;
     display: inline-flex;
     align-items: center;
+    gap: 6px;
     justify-content: center;
     border: 1px solid #cfd4dc;
     background: #f8f9fb;
     border-radius: 8px;
     cursor: pointer;
+    padding: 6px 10px;
+    color: #1d2a3a;
+    text-decoration: none;
+    font-size: 0.8rem;
+    font-weight: 600;
 }
 
 .admin-icon-button img {
@@ -186,6 +240,28 @@
 .admin-icon-delete {
     border-color: #e7c1c1;
     background: #fff5f5;
+    color: #8c1f1f;
+}
+
+.admin-select-toggle {
+    position: absolute;
+    left: 10px;
+    top: 10px;
+    z-index: 2;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid #d3d7df;
+    border-radius: 8px;
+    padding: 4px 8px;
+    display: inline-flex;
+    gap: 5px;
+    align-items: center;
+    font-size: 0.75rem;
+    color: #1d2a3a;
+    font-weight: 600;
+}
+
+.admin-select-toggle input {
+    cursor: pointer;
 }
 
 @media screen and (max-width: 900px) {
@@ -195,5 +271,10 @@
 
     .admin-row-head {
         display: none;
+    }
+
+    .admin-bulk-actions {
+        flex-direction: column;
+        align-items: flex-start;
     }
 }

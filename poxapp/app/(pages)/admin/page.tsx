@@ -101,6 +101,8 @@ export default function AdminPage() {
     const [createUserSuccess, setCreateUserSuccess] = useState("");
     const [creatingUser, setCreatingUser] = useState(false);
     const [deletingImagePath, setDeletingImagePath] = useState("");
+    const [selectedImagePaths, setSelectedImagePaths] = useState<string[]>([]);
+    const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
     const loadAdminData = useCallback(async () => {
         setLoading(true);
@@ -120,6 +122,15 @@ export default function AdminPage() {
 
             const payload = (await result.json()) as AdminActivityPayload;
             setData(payload);
+            setSelectedImagePaths((previous) => {
+                const availablePaths = new Set<string>([
+                    ...payload.predictions.map((entry) => entry.imagePath),
+                    ...payload.uploads.map((entry) => entry.imagePath),
+                    ...payload.serverPhotos.map((entry) => entry.relativePath),
+                ]);
+
+                return previous.filter((entry) => availablePaths.has(entry));
+            });
         } catch (requestError) {
             setError(
                 requestError instanceof Error
@@ -210,6 +221,9 @@ export default function AdminPage() {
             }
 
             await loadAdminData();
+            setSelectedImagePaths((previous) =>
+                previous.filter((entry) => entry !== relativePath)
+            );
         } catch (deleteError) {
             setError(
                 deleteError instanceof Error
@@ -219,6 +233,70 @@ export default function AdminPage() {
         } finally {
             setDeletingImagePath("");
         }
+    }
+
+    async function handleBulkDeleteImages() {
+        if (selectedImagePaths.length === 0) {
+            return;
+        }
+
+        const shouldDelete = window.confirm(
+            `Delete ${selectedImagePaths.length} selected image(s)?`
+        );
+        if (!shouldDelete) {
+            return;
+        }
+
+        setIsBulkDeleting(true);
+        setError("");
+
+        try {
+            const result = await fetch("/api/admin/images", {
+                method: "DELETE",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ relativePaths: selectedImagePaths }),
+            });
+
+            const payload = await result.json().catch(() => null);
+            if (!result.ok) {
+                throw new Error(payload?.error ?? "Bulk delete failed.");
+            }
+
+            if (Array.isArray(payload?.failed) && payload.failed.length > 0) {
+                const failedPreview = payload.failed
+                    .slice(0, 3)
+                    .map((entry: { path: string }) => entry.path)
+                    .join(", ");
+                setError(
+                    `Some images could not be deleted: ${failedPreview}${
+                        payload.failed.length > 3 ? "..." : ""
+                    }`
+                );
+            }
+
+            setSelectedImagePaths([]);
+            await loadAdminData();
+        } catch (bulkDeleteError) {
+            setError(
+                bulkDeleteError instanceof Error
+                    ? bulkDeleteError.message
+                    : "Bulk delete failed."
+            );
+        } finally {
+            setIsBulkDeleting(false);
+        }
+    }
+
+    function toggleImageSelection(relativePath: string) {
+        setSelectedImagePaths((previous) => {
+            if (previous.includes(relativePath)) {
+                return previous.filter((entry) => entry !== relativePath);
+            }
+
+            return [...previous, relativePath];
+        });
     }
 
     function ImageActions({ relativePath }: { relativePath: string }) {
@@ -237,9 +315,10 @@ export default function AdminPage() {
                     <Image
                         src="/assets/icons/aperture.svg"
                         alt="Open"
-                        width={16}
-                        height={16}
+                        width={18}
+                        height={18}
                     />
+                    <span>Open</span>
                 </a>
                 <a
                     href={imageUrl}
@@ -250,9 +329,10 @@ export default function AdminPage() {
                     <Image
                         src="/assets/icons/down.png"
                         alt="Download"
-                        width={16}
-                        height={16}
+                        width={18}
+                        height={18}
                     />
+                    <span>Download</span>
                 </a>
                 <button
                     type="button"
@@ -264,13 +344,28 @@ export default function AdminPage() {
                     <Image
                         src="/assets/icons/delete.png"
                         alt="Delete"
-                        width={16}
-                        height={16}
+                        width={18}
+                        height={18}
                     />
+                    <span>{isDeleting ? "Deleting..." : "Delete"}</span>
                 </button>
             </div>
         );
     }
+
+    const allImagePaths = useMemo(() => {
+        if (!data) {
+            return [];
+        }
+
+        return Array.from(
+            new Set<string>([
+                ...data.predictions.map((entry) => entry.imagePath),
+                ...data.uploads.map((entry) => entry.imagePath),
+                ...data.serverPhotos.map((entry) => entry.relativePath),
+            ])
+        );
+    }, [data]);
 
     const stats = useMemo(() => {
         return {
@@ -482,14 +577,75 @@ export default function AdminPage() {
                     </section>
 
                     <section className="admin-section">
+                        <h2>Image Selection</h2>
+                        <div className="admin-bulk-actions">
+                            <p>{selectedImagePaths.length} selected</p>
+                            <div className="admin-bulk-actions-buttons">
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setSelectedImagePaths(allImagePaths)
+                                    }
+                                    disabled={allImagePaths.length === 0}
+                                >
+                                    Select All
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedImagePaths([])}
+                                    disabled={selectedImagePaths.length === 0}
+                                >
+                                    Clear
+                                </button>
+                                <button
+                                    type="button"
+                                    className="danger"
+                                    onClick={handleBulkDeleteImages}
+                                    disabled={
+                                        selectedImagePaths.length === 0 ||
+                                        isBulkDeleting
+                                    }
+                                >
+                                    {isBulkDeleting
+                                        ? "Deleting..."
+                                        : "Delete Selected"}
+                                </button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section className="admin-section">
                         <h2>Prediction Photos</h2>
                         <div className="admin-photo-grid">
                             {data.predictions.map((prediction) => (
-                                <div key={prediction.id} className="admin-photo">
+                                <div
+                                    key={prediction.id}
+                                    className={`admin-photo ${
+                                        selectedImagePaths.includes(
+                                            prediction.imagePath
+                                        )
+                                            ? "selected"
+                                            : ""
+                                    }`}
+                                >
                                     <img
                                         src={buildUploadUrl(prediction.imagePath)}
                                         alt={prediction.predictedClass}
                                     />
+                                    <label className="admin-select-toggle">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedImagePaths.includes(
+                                                prediction.imagePath
+                                            )}
+                                            onChange={() =>
+                                                toggleImageSelection(
+                                                    prediction.imagePath
+                                                )
+                                            }
+                                        />
+                                        <span>Select</span>
+                                    </label>
                                     <div className="admin-photo-meta">
                                         <p>{prediction.user.name}</p>
                                         <p>
@@ -511,11 +667,34 @@ export default function AdminPage() {
                         <h2>All Uploaded Photos</h2>
                         <div className="admin-photo-grid">
                             {data.uploads.map((upload) => (
-                                <div key={upload.id} className="admin-photo">
+                                <div
+                                    key={upload.id}
+                                    className={`admin-photo ${
+                                        selectedImagePaths.includes(
+                                            upload.imagePath
+                                        )
+                                            ? "selected"
+                                            : ""
+                                    }`}
+                                >
                                     <img
                                         src={buildUploadUrl(upload.imagePath)}
                                         alt={upload.originalName ?? upload.imagePath}
                                     />
+                                    <label className="admin-select-toggle">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedImagePaths.includes(
+                                                upload.imagePath
+                                            )}
+                                            onChange={() =>
+                                                toggleImageSelection(
+                                                    upload.imagePath
+                                                )
+                                            }
+                                        />
+                                        <span>Select</span>
+                                    </label>
                                     <div className="admin-photo-meta">
                                         <p>{upload.user.name}</p>
                                         <p>
@@ -538,12 +717,32 @@ export default function AdminPage() {
                             {data.serverPhotos.map((photo) => (
                                 <div
                                     key={photo.relativePath}
-                                    className="admin-photo"
+                                    className={`admin-photo ${
+                                        selectedImagePaths.includes(
+                                            photo.relativePath
+                                        )
+                                            ? "selected"
+                                            : ""
+                                    }`}
                                 >
                                     <img
                                         src={buildUploadUrl(photo.relativePath)}
                                         alt={photo.fileName}
                                     />
+                                    <label className="admin-select-toggle">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedImagePaths.includes(
+                                                photo.relativePath
+                                            )}
+                                            onChange={() =>
+                                                toggleImageSelection(
+                                                    photo.relativePath
+                                                )
+                                            }
+                                        />
+                                        <span>Select</span>
+                                    </label>
                                     <div className="admin-photo-meta">
                                         <p>{photo.fileName}</p>
                                         <p>Folder: {photo.folder}</p>
