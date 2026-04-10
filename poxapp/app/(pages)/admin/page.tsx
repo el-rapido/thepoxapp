@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import "@/app/styles/admin.css";
+import { normalizeLabelFolder } from "@/lib/labels";
 
 type AdminUser = {
     id: number;
@@ -405,18 +406,18 @@ export default function AdminPage() {
 
     const folderGroups = useMemo(() => {
         if (!data) return [];
-        const map = new Map<string, typeof data.serverPhotos>();
-        for (const photo of data.serverPhotos) {
-            const normalizedFolder = photo.folder.toLowerCase();
-            if (!CATEGORY_FOLDERS.some((c) => c.key === normalizedFolder)) continue;
-            const list = map.get(normalizedFolder) ?? [];
-            list.push(photo);
-            map.set(normalizedFolder, list);
+        const map = new Map<string, Prediction[]>();
+        for (const prediction of data.predictions) {
+            const folderKey = normalizeLabelFolder(prediction.finalClass);
+            if (!folderKey) continue;
+            const list = map.get(folderKey) ?? [];
+            list.push(prediction);
+            map.set(folderKey, list);
         }
         return CATEGORY_FOLDERS.map(({ key, label }) => ({
             key,
             label,
-            photos: map.get(key) ?? [],
+            predictions: map.get(key) ?? [],
         }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [data]);
@@ -577,7 +578,7 @@ export default function AdminPage() {
                             {folderGroups.length === 0 && (
                                 <p className="admin-empty">No folders found.</p>
                             )}
-                            {folderGroups.map(({ key, label, photos }) => {
+                            {folderGroups.map(({ key, label, predictions: groupPredictions }) => {
                                 const isOpen = openFolders.has(key);
                                 return (
                                     <div key={key} className="admin-folder">
@@ -593,7 +594,7 @@ export default function AdminPage() {
                                                 {label}
                                             </span>
                                             <span className="admin-folder-count">
-                                                {photos.length} photo{photos.length !== 1 ? "s" : ""}
+                                                {groupPredictions.length} photo{groupPredictions.length !== 1 ? "s" : ""}
                                             </span>
                                             <span className="admin-folder-chevron">
                                                 {isOpen ? "▲" : "▼"}
@@ -602,12 +603,12 @@ export default function AdminPage() {
                                         {isOpen && (
                                             <div className="admin-folder-photos">
                                                 <div className="admin-photo-grid">
-                                                    {photos.map((photo) => (
+                                                    {groupPredictions.map((prediction) => (
                                                         <div
-                                                            key={photo.relativePath}
+                                                            key={prediction.id}
                                                             className={`admin-photo ${
                                                                 selectedImagePaths.includes(
-                                                                    photo.relativePath
+                                                                    prediction.imagePath
                                                                 )
                                                                     ? "selected"
                                                                     : ""
@@ -615,30 +616,30 @@ export default function AdminPage() {
                                                         >
                                                             <img
                                                                 src={buildUploadUrl(
-                                                                    photo.relativePath
+                                                                    prediction.imagePath
                                                                 )}
-                                                                alt={photo.fileName}
+                                                                alt={prediction.predictedClass}
                                                             />
                                                             <label className="admin-select-toggle">
                                                                 <input
                                                                     type="checkbox"
                                                                     checked={selectedImagePaths.includes(
-                                                                        photo.relativePath
+                                                                        prediction.imagePath
                                                                     )}
                                                                     onChange={() =>
                                                                         toggleImageSelection(
-                                                                            photo.relativePath
+                                                                            prediction.imagePath
                                                                         )
                                                                     }
                                                                 />
                                                                 <span>Select</span>
                                                             </label>
                                                             <div className="admin-photo-meta">
-                                                                <p>{photo.fileName}</p>
+                                                                <p>{prediction.user.name}</p>
+                                                                <p>Predicted: {prediction.predictedClass}</p>
+                                                                <p>{dateLabel(prediction.createdAt)}</p>
                                                                 <ImageActions
-                                                                    relativePath={
-                                                                        photo.relativePath
-                                                                    }
+                                                                    relativePath={prediction.imagePath}
                                                                 />
                                                             </div>
                                                         </div>
