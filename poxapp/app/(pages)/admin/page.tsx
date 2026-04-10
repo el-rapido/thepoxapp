@@ -103,6 +103,7 @@ export default function AdminPage() {
     const [deletingImagePath, setDeletingImagePath] = useState("");
     const [selectedImagePaths, setSelectedImagePaths] = useState<string[]>([]);
     const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+    const [openFolders, setOpenFolders] = useState<Set<string>>(new Set());
 
     const loadAdminData = useCallback(async () => {
         setLoading(true);
@@ -299,6 +300,18 @@ export default function AdminPage() {
         });
     }
 
+    function toggleFolder(folderName: string) {
+        setOpenFolders((previous) => {
+            const next = new Set(previous);
+            if (next.has(folderName)) {
+                next.delete(folderName);
+            } else {
+                next.add(folderName);
+            }
+            return next;
+        });
+    }
+
     function ImageActions({ relativePath }: { relativePath: string }) {
         const imageUrl = buildUploadUrl(relativePath);
         const isDeleting = deletingImagePath === relativePath;
@@ -364,6 +377,20 @@ export default function AdminPage() {
         );
     }, [data]);
 
+    const folderGroups = useMemo(() => {
+        if (!data) return [];
+        const map = new Map<string, typeof data.serverPhotos>();
+        for (const photo of data.serverPhotos) {
+            const list = map.get(photo.folder) ?? [];
+            list.push(photo);
+            map.set(photo.folder, list);
+        }
+        return Array.from(map.entries()).map(([folder, photos]) => ({
+            folder,
+            photos,
+        }));
+    }, [data]);
+
     const stats = useMemo(() => {
         return {
             users: data?.users.length ?? 0,
@@ -409,6 +436,176 @@ export default function AdminPage() {
                         </div>
                     </div>
 
+                    {/* Prediction Photos — shown first */}
+                    <section className="admin-section">
+                        <h2>Prediction Photos</h2>
+                        <div className="admin-bulk-actions">
+                            <p>{selectedImagePaths.length} selected</p>
+                            <div className="admin-bulk-actions-buttons">
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setSelectedImagePaths(allImagePaths)
+                                    }
+                                    disabled={allImagePaths.length === 0}
+                                >
+                                    Select All
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedImagePaths([])}
+                                    disabled={selectedImagePaths.length === 0}
+                                >
+                                    Clear
+                                </button>
+                                <button
+                                    type="button"
+                                    className="danger"
+                                    onClick={handleBulkDeleteImages}
+                                    disabled={
+                                        selectedImagePaths.length === 0 ||
+                                        isBulkDeleting
+                                    }
+                                >
+                                    {isBulkDeleting
+                                        ? "Deleting..."
+                                        : "Delete Selected"}
+                                </button>
+                            </div>
+                        </div>
+                        <div className="admin-photo-grid">
+                            {data.predictions.map((prediction) => (
+                                <div
+                                    key={prediction.id}
+                                    className={`admin-photo ${
+                                        selectedImagePaths.includes(
+                                            prediction.imagePath
+                                        )
+                                            ? "selected"
+                                            : ""
+                                    }`}
+                                >
+                                    <img
+                                        src={buildUploadUrl(prediction.imagePath)}
+                                        alt={prediction.predictedClass}
+                                    />
+                                    <label className="admin-select-toggle">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedImagePaths.includes(
+                                                prediction.imagePath
+                                            )}
+                                            onChange={() =>
+                                                toggleImageSelection(
+                                                    prediction.imagePath
+                                                )
+                                            }
+                                        />
+                                        <span>Select</span>
+                                    </label>
+                                    <div className="admin-photo-meta">
+                                        <p>{prediction.user.name}</p>
+                                        <p>
+                                            Predicted:{" "}
+                                            {prediction.predictedClass}
+                                        </p>
+                                        <p>Final: {prediction.finalClass}</p>
+                                        <p>{dateLabel(prediction.createdAt)}</p>
+                                        <ImageActions
+                                            relativePath={prediction.imagePath}
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+                            {data.predictions.length === 0 && (
+                                <p className="admin-empty">No prediction photos yet.</p>
+                            )}
+                        </div>
+                    </section>
+
+                    {/* Server Folders — clickable to expand and view photos */}
+                    <section className="admin-section">
+                        <h2>Server Folders</h2>
+                        <div className="admin-folder-list">
+                            {folderGroups.length === 0 && (
+                                <p className="admin-empty">No folders found.</p>
+                            )}
+                            {folderGroups.map(({ folder, photos }) => {
+                                const isOpen = openFolders.has(folder);
+                                return (
+                                    <div key={folder} className="admin-folder">
+                                        <button
+                                            type="button"
+                                            className="admin-folder-header"
+                                            onClick={() => toggleFolder(folder)}
+                                        >
+                                            <span className="admin-folder-icon">
+                                                {isOpen ? "📂" : "📁"}
+                                            </span>
+                                            <span className="admin-folder-name">
+                                                {folder}
+                                            </span>
+                                            <span className="admin-folder-count">
+                                                {photos.length} photo{photos.length !== 1 ? "s" : ""}
+                                            </span>
+                                            <span className="admin-folder-chevron">
+                                                {isOpen ? "▲" : "▼"}
+                                            </span>
+                                        </button>
+                                        {isOpen && (
+                                            <div className="admin-folder-photos">
+                                                <div className="admin-photo-grid">
+                                                    {photos.map((photo) => (
+                                                        <div
+                                                            key={photo.relativePath}
+                                                            className={`admin-photo ${
+                                                                selectedImagePaths.includes(
+                                                                    photo.relativePath
+                                                                )
+                                                                    ? "selected"
+                                                                    : ""
+                                                            }`}
+                                                        >
+                                                            <img
+                                                                src={buildUploadUrl(
+                                                                    photo.relativePath
+                                                                )}
+                                                                alt={photo.fileName}
+                                                            />
+                                                            <label className="admin-select-toggle">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={selectedImagePaths.includes(
+                                                                        photo.relativePath
+                                                                    )}
+                                                                    onChange={() =>
+                                                                        toggleImageSelection(
+                                                                            photo.relativePath
+                                                                        )
+                                                                    }
+                                                                />
+                                                                <span>Select</span>
+                                                            </label>
+                                                            <div className="admin-photo-meta">
+                                                                <p>{photo.fileName}</p>
+                                                                <ImageActions
+                                                                    relativePath={
+                                                                        photo.relativePath
+                                                                    }
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </section>
+
+                    {/* Admin management sections */}
                     <section className="admin-section">
                         <h2>Create User</h2>
                         <form
@@ -568,185 +765,6 @@ export default function AdminPage() {
                                     <span>{dateLabel(event.loggedInAt)}</span>
                                     <span>{event.ipAddress ?? "-"}</span>
                                     <span>{event.userAgent ?? "-"}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </section>
-
-                    <section className="admin-section">
-                        <h2>Image Selection</h2>
-                        <div className="admin-bulk-actions">
-                            <p>{selectedImagePaths.length} selected</p>
-                            <div className="admin-bulk-actions-buttons">
-                                <button
-                                    type="button"
-                                    onClick={() =>
-                                        setSelectedImagePaths(allImagePaths)
-                                    }
-                                    disabled={allImagePaths.length === 0}
-                                >
-                                    Select All
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setSelectedImagePaths([])}
-                                    disabled={selectedImagePaths.length === 0}
-                                >
-                                    Clear
-                                </button>
-                                <button
-                                    type="button"
-                                    className="danger"
-                                    onClick={handleBulkDeleteImages}
-                                    disabled={
-                                        selectedImagePaths.length === 0 ||
-                                        isBulkDeleting
-                                    }
-                                >
-                                    {isBulkDeleting
-                                        ? "Deleting..."
-                                        : "Delete Selected"}
-                                </button>
-                            </div>
-                        </div>
-                    </section>
-
-                    <section className="admin-section">
-                        <h2>Prediction Photos</h2>
-                        <div className="admin-photo-grid">
-                            {data.predictions.map((prediction) => (
-                                <div
-                                    key={prediction.id}
-                                    className={`admin-photo ${
-                                        selectedImagePaths.includes(
-                                            prediction.imagePath
-                                        )
-                                            ? "selected"
-                                            : ""
-                                    }`}
-                                >
-                                    <img
-                                        src={buildUploadUrl(prediction.imagePath)}
-                                        alt={prediction.predictedClass}
-                                    />
-                                    <label className="admin-select-toggle">
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedImagePaths.includes(
-                                                prediction.imagePath
-                                            )}
-                                            onChange={() =>
-                                                toggleImageSelection(
-                                                    prediction.imagePath
-                                                )
-                                            }
-                                        />
-                                        <span>Select</span>
-                                    </label>
-                                    <div className="admin-photo-meta">
-                                        <p>{prediction.user.name}</p>
-                                        <p>
-                                            Predicted:{" "}
-                                            {prediction.predictedClass}
-                                        </p>
-                                        <p>Final: {prediction.finalClass}</p>
-                                        <p>{dateLabel(prediction.createdAt)}</p>
-                                        <ImageActions
-                                            relativePath={prediction.imagePath}
-                                        />
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </section>
-
-                    <section className="admin-section">
-                        <h2>All Uploaded Photos</h2>
-                        <div className="admin-photo-grid">
-                            {data.uploads.map((upload) => (
-                                <div
-                                    key={upload.id}
-                                    className={`admin-photo ${
-                                        selectedImagePaths.includes(
-                                            upload.imagePath
-                                        )
-                                            ? "selected"
-                                            : ""
-                                    }`}
-                                >
-                                    <img
-                                        src={buildUploadUrl(upload.imagePath)}
-                                        alt={upload.originalName ?? upload.imagePath}
-                                    />
-                                    <label className="admin-select-toggle">
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedImagePaths.includes(
-                                                upload.imagePath
-                                            )}
-                                            onChange={() =>
-                                                toggleImageSelection(
-                                                    upload.imagePath
-                                                )
-                                            }
-                                        />
-                                        <span>Select</span>
-                                    </label>
-                                    <div className="admin-photo-meta">
-                                        <p>{upload.user.name}</p>
-                                        <p>
-                                            Original file:{" "}
-                                            {upload.originalName ?? "unknown"}
-                                        </p>
-                                        <p>{dateLabel(upload.createdAt)}</p>
-                                        <ImageActions
-                                            relativePath={upload.imagePath}
-                                        />
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </section>
-
-                    <section className="admin-section">
-                        <h2>Server Folder Photos</h2>
-                        <div className="admin-photo-grid">
-                            {data.serverPhotos.map((photo) => (
-                                <div
-                                    key={photo.relativePath}
-                                    className={`admin-photo ${
-                                        selectedImagePaths.includes(
-                                            photo.relativePath
-                                        )
-                                            ? "selected"
-                                            : ""
-                                    }`}
-                                >
-                                    <img
-                                        src={buildUploadUrl(photo.relativePath)}
-                                        alt={photo.fileName}
-                                    />
-                                    <label className="admin-select-toggle">
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedImagePaths.includes(
-                                                photo.relativePath
-                                            )}
-                                            onChange={() =>
-                                                toggleImageSelection(
-                                                    photo.relativePath
-                                                )
-                                            }
-                                        />
-                                        <span>Select</span>
-                                    </label>
-                                    <div className="admin-photo-meta">
-                                        <p>{photo.fileName}</p>
-                                        <p>Folder: {photo.folder}</p>
-                                        <ImageActions
-                                            relativePath={photo.relativePath}
-                                        />
-                                    </div>
                                 </div>
                             ))}
                         </div>
