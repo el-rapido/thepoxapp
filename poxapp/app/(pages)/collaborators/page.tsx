@@ -15,16 +15,13 @@ const collaborators = [
         name: "Mr. Ibrahim Ame",
         imageName: "ibrahim.png",
     },
+   
     {
-        name: "Eda",
-        imageName: "eda.jpg",
-    },
-    {
-        name: "Serhan",
+        name: "Assoc. Prof. Dr. Cenk Serhan Özverel",
         imageName: "serhan.jpg",
     },
     {
-        name: "Seyer",
+        name: "Assist. Prof. Dr. Ayşe Seyer",
         imageName: "seyer.jpg",
     },
 ];

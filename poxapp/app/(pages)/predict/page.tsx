@@ -184,7 +184,6 @@ export default function Predict() {
 
             setImage(undefined);
             setReviewPopup(true);
-            setChangePredictionPopup(true);
         } catch (error) {
             console.error(error);
         } finally {
