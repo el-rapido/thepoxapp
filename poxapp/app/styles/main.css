@@ -134,6 +134,15 @@ body {
     grid-template-rows: auto 1fr;
 }
 
+.predict-page-upload {
+    display: grid;
+    gap: 20px;
+    justify-items: center;
+    width: 100%;
+    max-width: 600px;
+    justify-self: center;
+}
+
 .main-container.normal-margin {
     padding-top: 150px;
 }
