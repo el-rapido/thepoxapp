@@ -18,7 +18,7 @@ export default function Home() {
         (async () => {
             const result = await fetch("/api/auth/me", { cache: "no-store" });
             if (active && result.ok) {
-                router.replace("/dashboard");
+                router.replace("/predict");
             }
         })();
 
@@ -58,7 +58,7 @@ export default function Home() {
                 return;
             }
 
-            router.push("/dashboard");
+            router.push("/predict");
         } catch (error) {
             console.error(error);
             setLoginError("Login request failed.");
