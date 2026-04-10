@@ -33,7 +33,6 @@ export default function Predict() {
     const [userComment, setUserComment] = useState("");
     const [regularFilename, setRegularFilename] = useState("");
     const [predictionRecordId, setPredictionRecordId] = useState<number | null>(null);
-    const [mustConfirmPrediction, setMustConfirmPrediction] = useState(false);
     const [changeValidationError, setChangeValidationError] = useState("");
 
     const { uploadFile, isUploading } = useFileUpload();
@@ -79,8 +78,7 @@ export default function Predict() {
             body: JSON.stringify({ prediction, question, absoluteImageURL }),
         });
 
-        const returnText = await result.text();
-        setGPTResult(returnText);
+        setGPTResult(await result.text());
     }
 
     async function commentOnImage(
@@ -180,8 +178,6 @@ export default function Predict() {
             setSelectedChoice(predictedClass);
             setUserComment("");
             setChangeValidationError("");
-            setMustConfirmPrediction(true);
-
             setImage(undefined);
             setReviewPopup(true);
         } catch (error) {
@@ -196,8 +192,7 @@ export default function Predict() {
             if (event.target.files) {
                 const file = event.target.files[0];
                 setImage(file);
-                const url = URL.createObjectURL(file);
-                setImageURL(url);
+                setImageURL(URL.createObjectURL(file));
             }
         } catch (error) {
             setImageURL(undefined);
@@ -245,7 +240,6 @@ export default function Predict() {
 
             setPredictedResults((prev) => ({ ...prev, className: finalChoice }));
             setChangePredictionPopup(false);
-            setMustConfirmPrediction(false);
         } catch (error) {
             console.error(error);
         } finally {
@@ -279,9 +273,13 @@ export default function Predict() {
                 </label>
 
                 <div
-                    className={`button${!image ? " button-disabled" : ""}`}
+                    className="button"
                     onClick={startPrediction}
-                    style={{ justifySelf: "center", cursor: image ? "pointer" : "not-allowed", opacity: image ? 1 : 0.5 }}
+                    style={{
+                        justifySelf: "center",
+                        cursor: image ? "pointer" : "not-allowed",
+                        opacity: image ? 1 : 0.5,
+                    }}
                 >
                     {isUploading || isPredicting ? "Analyzing..." : "Start Prediction"}
                 </div>
@@ -292,9 +290,7 @@ export default function Predict() {
             {reviewPopup && (
                 <Popup
                     title="Prediction Results"
-                    closable={!mustConfirmPrediction}
                     onClose={() => {
-                        if (mustConfirmPrediction) return;
                         setReviewPopup(false);
                         setImageURL(undefined);
                     }}
@@ -333,16 +329,8 @@ export default function Predict() {
                                         className="button change-prediction-button"
                                         onClick={() => setChangePredictionPopup(true)}
                                     >
-                                        {mustConfirmPrediction
-                                            ? "Finalize Prediction (Required)"
-                                            : "Change Prediction"}
+                                        Change Prediction
                                     </div>
-
-                                    {mustConfirmPrediction && (
-                                        <p className="mandatory-change-message">
-                                            You must confirm the final prediction before closing this result.
-                                        </p>
-                                    )}
                                 </div>
 
                                 <div className="stretch-container">
@@ -369,11 +357,7 @@ export default function Predict() {
             {changePredictionPopup && (
                 <Popup
                     title="Change Prediction"
-                    closable={!mustConfirmPrediction}
-                    onClose={() => {
-                        if (mustConfirmPrediction) return;
-                        setChangePredictionPopup(false);
-                    }}
+                    onClose={() => setChangePredictionPopup(false)}
                 >
                     <PopupBody>
                         <div className="popup-body change-prediction-body">
