@@ -104,6 +104,8 @@ export default function AdminPage() {
     const [selectedImagePaths, setSelectedImagePaths] = useState<string[]>([]);
     const [isBulkDeleting, setIsBulkDeleting] = useState(false);
     const [openFolders, setOpenFolders] = useState<Set<string>>(new Set());
+    const [isReorganizing, setIsReorganizing] = useState(false);
+    const [reorganizeResult, setReorganizeResult] = useState<{ moved: number; skipped: number } | null>(null);
 
     const loadAdminData = useCallback(async () => {
         setLoading(true);
@@ -290,6 +292,22 @@ export default function AdminPage() {
         }
     }
 
+    async function handleReorganize() {
+        setIsReorganizing(true);
+        setReorganizeResult(null);
+        try {
+            const result = await fetch("/api/admin/reorganize", { method: "POST" });
+            const payload = await result.json().catch(() => null);
+            if (!result.ok) throw new Error(payload?.error ?? "Reorganize failed.");
+            setReorganizeResult({ moved: payload.moved, skipped: payload.skipped });
+            await loadAdminData();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Reorganize failed.");
+        } finally {
+            setIsReorganizing(false);
+        }
+    }
+
     function toggleImageSelection(relativePath: string) {
         setSelectedImagePaths((previous) => {
             if (previous.includes(relativePath)) {
@@ -450,7 +468,24 @@ export default function AdminPage() {
 
                     {/* Prediction Photos — shown first */}
                     <section className="admin-section">
-                        <h2>Prediction Photos</h2>
+                        <div className="admin-section-header">
+                            <h2>Prediction Photos</h2>
+                            <button
+                                type="button"
+                                className="admin-reorganize-btn"
+                                onClick={handleReorganize}
+                                disabled={isReorganizing}
+                                title="Move existing photos into their category folders based on prediction result"
+                            >
+                                {isReorganizing ? "Organizing..." : "Organize into Folders"}
+                            </button>
+                        </div>
+                        {reorganizeResult && (
+                            <p className="admin-feedback success">
+                                Done — {reorganizeResult.moved} photo{reorganizeResult.moved !== 1 ? "s" : ""} moved
+                                {reorganizeResult.skipped > 0 ? `, ${reorganizeResult.skipped} skipped` : ""}.
+                            </p>
+                        )}
                         <div className="admin-bulk-actions">
                             <p>{selectedImagePaths.length} selected</p>
                             <div className="admin-bulk-actions-buttons">

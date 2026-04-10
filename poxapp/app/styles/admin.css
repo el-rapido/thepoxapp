@@ -271,6 +271,36 @@
     cursor: pointer;
 }
 
+.admin-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.admin-reorganize-btn {
+    border: 1px solid #ccd2db;
+    background: #f8f9fb;
+    color: #1d2a3a;
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.admin-reorganize-btn:hover {
+    border-color: var(--accent);
+    background: #eef5ff;
+    color: var(--accent);
+}
+
+.admin-reorganize-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 .admin-empty {
     color: var(--light-gray);
     font-size: 0.9rem;
