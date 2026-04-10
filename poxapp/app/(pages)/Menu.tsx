@@ -21,20 +21,6 @@ function Menu({ user }: MenuProps) {
                 />
             </div>
 
-            <Link href="/dashboard">
-                <div className="navigation-item">
-                    <div className="image">
-                        <Image
-                            src="/assets/icons/grid.svg"
-                            alt=""
-                            width={40}
-                            height={40}
-                        />
-                    </div>
-                    <div className="text">Dashboard</div>
-                </div>
-            </Link>
-
             <Link href="/predict">
                 <div className="navigation-item">
                     <div className="image">
