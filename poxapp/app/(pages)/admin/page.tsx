@@ -377,18 +377,30 @@ export default function AdminPage() {
         );
     }, [data]);
 
+    const CATEGORY_FOLDERS: { key: string; label: string }[] = [
+        { key: "acne", label: "Acne" },
+        { key: "chipox", label: "Chickenpox" },
+        { key: "mpox", label: "Monkeypox" },
+        { key: "normal", label: "Normal" },
+        { key: "not-identified", label: "Not Identified" },
+    ];
+
     const folderGroups = useMemo(() => {
         if (!data) return [];
         const map = new Map<string, typeof data.serverPhotos>();
         for (const photo of data.serverPhotos) {
-            const list = map.get(photo.folder) ?? [];
+            const normalizedFolder = photo.folder.toLowerCase();
+            if (!CATEGORY_FOLDERS.some((c) => c.key === normalizedFolder)) continue;
+            const list = map.get(normalizedFolder) ?? [];
             list.push(photo);
-            map.set(photo.folder, list);
+            map.set(normalizedFolder, list);
         }
-        return Array.from(map.entries()).map(([folder, photos]) => ({
-            folder,
-            photos,
+        return CATEGORY_FOLDERS.map(({ key, label }) => ({
+            key,
+            label,
+            photos: map.get(key) ?? [],
         }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [data]);
 
     const stats = useMemo(() => {
@@ -530,20 +542,20 @@ export default function AdminPage() {
                             {folderGroups.length === 0 && (
                                 <p className="admin-empty">No folders found.</p>
                             )}
-                            {folderGroups.map(({ folder, photos }) => {
-                                const isOpen = openFolders.has(folder);
+                            {folderGroups.map(({ key, label, photos }) => {
+                                const isOpen = openFolders.has(key);
                                 return (
-                                    <div key={folder} className="admin-folder">
+                                    <div key={key} className="admin-folder">
                                         <button
                                             type="button"
                                             className="admin-folder-header"
-                                            onClick={() => toggleFolder(folder)}
+                                            onClick={() => toggleFolder(key)}
                                         >
                                             <span className="admin-folder-icon">
                                                 {isOpen ? "📂" : "📁"}
                                             </span>
                                             <span className="admin-folder-name">
-                                                {folder}
+                                                {label}
                                             </span>
                                             <span className="admin-folder-count">
                                                 {photos.length} photo{photos.length !== 1 ? "s" : ""}
