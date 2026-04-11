@@ -3,7 +3,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import "@/app/styles/admin.css";
-import { normalizeLabelFolder } from "@/lib/labels";
 
 type AdminUser = {
     id: number;
