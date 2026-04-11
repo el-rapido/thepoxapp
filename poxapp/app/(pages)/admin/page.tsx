@@ -404,20 +404,35 @@ export default function AdminPage() {
         { key: "not-identified", label: "Not Identified" },
     ];
 
-    const folderGroups = useMemo(() => {
+    const folderGroups = useMemo((): Array<{
+        key: string;
+        label: string;
+        photos: AdminActivityPayload["serverPhotos"];
+        predictionByPath: Map<string, Prediction>;
+    }> => {
         if (!data) return [];
-        const map = new Map<string, Prediction[]>();
+
+        // Build lookup: imagePath → prediction for showing metadata when available
+        const predictionByPath = new Map<string, Prediction>();
         for (const prediction of data.predictions) {
-            const folderKey = normalizeLabelFolder(prediction.finalClass);
-            if (!folderKey) continue;
-            const list = map.get(folderKey) ?? [];
-            list.push(prediction);
-            map.set(folderKey, list);
+            predictionByPath.set(prediction.imagePath, prediction);
         }
+
+        // Group server photos (disk files) by top-level folder
+        const map = new Map<string, typeof data.serverPhotos>();
+        for (const photo of data.serverPhotos) {
+            const topFolder = photo.folder.split("/")[0];
+            if (!topFolder || topFolder === "root") continue;
+            const list = map.get(topFolder) ?? [];
+            list.push(photo);
+            map.set(topFolder, list);
+        }
+
         return CATEGORY_FOLDERS.map(({ key, label }) => ({
             key,
             label,
-            predictions: map.get(key) ?? [],
+            photos: map.get(key) ?? [],
+            predictionByPath,
         }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [data]);
@@ -578,7 +593,7 @@ export default function AdminPage() {
                             {folderGroups.length === 0 && (
                                 <p className="admin-empty">No folders found.</p>
                             )}
-                            {folderGroups.map(({ key, label, predictions: groupPredictions }) => {
+                            {folderGroups.map(({ key, label, photos, predictionByPath }) => {
                                 const isOpen = openFolders.has(key);
                                 return (
                                     <div key={key} className="admin-folder">
@@ -594,7 +609,7 @@ export default function AdminPage() {
                                                 {label}
                                             </span>
                                             <span className="admin-folder-count">
-                                                {groupPredictions.length} photo{groupPredictions.length !== 1 ? "s" : ""}
+                                                {photos.length} photo{photos.length !== 1 ? "s" : ""}
                                             </span>
                                             <span className="admin-folder-chevron">
                                                 {isOpen ? "▲" : "▼"}
@@ -603,47 +618,48 @@ export default function AdminPage() {
                                         {isOpen && (
                                             <div className="admin-folder-photos">
                                                 <div className="admin-photo-grid">
-                                                    {groupPredictions.map((prediction) => (
-                                                        <div
-                                                            key={prediction.id}
-                                                            className={`admin-photo ${
-                                                                selectedImagePaths.includes(
-                                                                    prediction.imagePath
-                                                                )
-                                                                    ? "selected"
-                                                                    : ""
-                                                            }`}
-                                                        >
-                                                            <img
-                                                                src={buildUploadUrl(
-                                                                    prediction.imagePath
-                                                                )}
-                                                                alt={prediction.predictedClass}
-                                                            />
-                                                            <label className="admin-select-toggle">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={selectedImagePaths.includes(
-                                                                        prediction.imagePath
-                                                                    )}
-                                                                    onChange={() =>
-                                                                        toggleImageSelection(
-                                                                            prediction.imagePath
-                                                                        )
-                                                                    }
+                                                    {photos.map((photo) => {
+                                                        const prediction = predictionByPath.get(photo.relativePath);
+                                                        return (
+                                                            <div
+                                                                key={photo.relativePath}
+                                                                className={`admin-photo ${
+                                                                    selectedImagePaths.includes(
+                                                                        photo.relativePath
+                                                                    )
+                                                                        ? "selected"
+                                                                        : ""
+                                                                }`}
+                                                            >
+                                                                <img
+                                                                    src={buildUploadUrl(photo.relativePath)}
+                                                                    alt={photo.fileName}
                                                                 />
-                                                                <span>Select</span>
-                                                            </label>
-                                                            <div className="admin-photo-meta">
-                                                                <p>{prediction.user.name}</p>
-                                                                <p>Predicted: {prediction.predictedClass}</p>
-                                                                <p>{dateLabel(prediction.createdAt)}</p>
-                                                                <ImageActions
-                                                                    relativePath={prediction.imagePath}
-                                                                />
+                                                                <label className="admin-select-toggle">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={selectedImagePaths.includes(
+                                                                            photo.relativePath
+                                                                        )}
+                                                                        onChange={() =>
+                                                                            toggleImageSelection(
+                                                                                photo.relativePath
+                                                                            )
+                                                                        }
+                                                                    />
+                                                                    <span>Select</span>
+                                                                </label>
+                                                                <div className="admin-photo-meta">
+                                                                    {prediction && <p>{prediction.user.name}</p>}
+                                                                    {prediction && <p>Predicted: {prediction.predictedClass}</p>}
+                                                                    {prediction && <p>{dateLabel(prediction.createdAt)}</p>}
+                                                                    <ImageActions
+                                                                        relativePath={photo.relativePath}
+                                                                    />
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    ))}
+                                                        );
+                                                    })}
                                                 </div>
                                             </div>
                                         )}
