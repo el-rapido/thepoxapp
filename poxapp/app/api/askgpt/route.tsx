@@ -25,9 +25,9 @@ async function askChatGPT(__prediction: string, __question: string, absoluteImag
     const OPENAI_KEY = process.env.OPENAI_KEY;
     console.log("OPENAI_KEY: ", OPENAI_KEY);
 
-    const prompt = `The prediction is "${prediction}", The image is from ${absoluteImageURL}. ${question}`;
+    const textPrompt = `The ML model predicted this skin condition as "${prediction}". ${question}`;
 
-    console.log("prompt: ", prompt);
+    console.log("prompt: ", textPrompt);
 
     if (!OPENAI_KEY) {
         alert("OPEN AI KEY DOES NOT ESIT");
@@ -45,7 +45,21 @@ async function askChatGPT(__prediction: string, __question: string, absoluteImag
                 },
                 body: JSON.stringify({
                     model: "gpt-4o",
-                    messages: [{ role: "user", content: prompt }],
+                    messages: [
+                        {
+                            role: "user",
+                            content: [
+                                {
+                                    type: "image_url",
+                                    image_url: { url: absoluteImageURL },
+                                },
+                                {
+                                    type: "text",
+                                    text: textPrompt,
+                                },
+                            ],
+                        },
+                    ],
                     max_tokens: 100,
                 }),
             }
