@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import fs from "fs";
+import path from "path";
 
 export async function POST(request: NextRequest) {
     const body = await request.json();
@@ -23,16 +25,21 @@ async function askChatGPT(__prediction: string, __question: string, absoluteImag
     const question = __question.trim();
 
     const OPENAI_KEY = process.env.OPENAI_KEY;
-    console.log("OPENAI_KEY: ", OPENAI_KEY);
 
     const textPrompt = `The ML model predicted this skin condition as "${prediction}". ${question}`;
 
-    console.log("prompt: ", textPrompt);
-
     if (!OPENAI_KEY) {
-        alert("OPEN AI KEY DOES NOT ESIT");
-        return;
+        throw new Error("OPENAI_KEY is not set");
     }
+
+    // Extract the filename from the URL and read from disk so OpenAI can receive
+    // the image directly — the app URL is not publicly reachable by OpenAI's servers.
+    const fileName = absoluteImageURL.split("/uploads/")[1];
+    const filePath = path.join(process.cwd(), "uploads", fileName);
+    const fileBuffer = await fs.promises.readFile(filePath);
+    const ext = path.extname(fileName).slice(1).toLowerCase() || "jpeg";
+    const mimeType = ext === "jpg" ? "image/jpeg" : `image/${ext}`;
+    const base64Image = `data:${mimeType};base64,${fileBuffer.toString("base64")}`;
 
     try {
         const response = await fetch(
@@ -51,7 +58,7 @@ async function askChatGPT(__prediction: string, __question: string, absoluteImag
                             content: [
                                 {
                                     type: "image_url",
-                                    image_url: { url: absoluteImageURL },
+                                    image_url: { url: base64Image },
                                 },
                                 {
                                     type: "text",
@@ -66,9 +73,13 @@ async function askChatGPT(__prediction: string, __question: string, absoluteImag
         );
 
         const data = await response.json();
+        if (!data.choices?.[0]?.message?.content) {
+            console.error("OpenAI error response:", data);
+            throw new Error(data.error?.message ?? "GPT returned no content");
+        }
         return data.choices[0].message.content.trim();
     } catch (error) {
         console.error(error);
-        return new Error("GPT Failed To Respond");
+        throw new Error("GPT Failed To Respond");
     }
 }
